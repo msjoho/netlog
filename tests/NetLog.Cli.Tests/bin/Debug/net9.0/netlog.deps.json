@@ -1,0 +1,124 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v9.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v9.0": {
+      "netlog/1.0.0": {
+        "dependencies": {
+          "NetLog.Core": "1.0.0",
+          "Spectre.Console": "0.55.0",
+          "Spectre.Console.Cli": "0.55.0"
+        },
+        "runtime": {
+          "netlog.dll": {}
+        }
+      },
+      "Spectre.Console/0.55.0": {
+        "dependencies": {
+          "Spectre.Console.Ansi": "0.55.0"
+        },
+        "runtime": {
+          "lib/net9.0/Spectre.Console.dll": {
+            "assemblyVersion": "0.0.0.0",
+            "fileVersion": "0.55.0.0"
+          }
+        }
+      },
+      "Spectre.Console.Ansi/0.55.0": {
+        "runtime": {
+          "lib/net9.0/Spectre.Console.Ansi.dll": {
+            "assemblyVersion": "0.0.0.0",
+            "fileVersion": "0.55.0.0"
+          }
+        }
+      },
+      "Spectre.Console.Cli/0.55.0": {
+        "dependencies": {
+          "Spectre.Console": "0.55.0"
+        },
+        "runtime": {
+          "lib/net9.0/Spectre.Console.Cli.dll": {
+            "assemblyVersion": "0.0.0.0",
+            "fileVersion": "0.55.0.0"
+          }
+        },
+        "resources": {
+          "lib/net9.0/de/Spectre.Console.Cli.resources.dll": {
+            "locale": "de"
+          },
+          "lib/net9.0/es/Spectre.Console.Cli.resources.dll": {
+            "locale": "es"
+          },
+          "lib/net9.0/fr/Spectre.Console.Cli.resources.dll": {
+            "locale": "fr"
+          },
+          "lib/net9.0/it/Spectre.Console.Cli.resources.dll": {
+            "locale": "it"
+          },
+          "lib/net9.0/ja/Spectre.Console.Cli.resources.dll": {
+            "locale": "ja"
+          },
+          "lib/net9.0/ko/Spectre.Console.Cli.resources.dll": {
+            "locale": "ko"
+          },
+          "lib/net9.0/pt/Spectre.Console.Cli.resources.dll": {
+            "locale": "pt"
+          },
+          "lib/net9.0/ru/Spectre.Console.Cli.resources.dll": {
+            "locale": "ru"
+          },
+          "lib/net9.0/sv/Spectre.Console.Cli.resources.dll": {
+            "locale": "sv"
+          },
+          "lib/net9.0/zh-Hans/Spectre.Console.Cli.resources.dll": {
+            "locale": "zh-Hans"
+          }
+        }
+      },
+      "NetLog.Core/1.0.0": {
+        "runtime": {
+          "NetLog.Core.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "netlog/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Spectre.Console/0.55.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-2TVhUHFsDux0Z+y2Hv4bFsOMuON4SuotEEKkMparFkp5Rm259naaaEQrN4Sv6C1cbsiGKPjfkJDGgUp+hZPjTw==",
+      "path": "spectre.console/0.55.0",
+      "hashPath": "spectre.console.0.55.0.nupkg.sha512"
+    },
+    "Spectre.Console.Ansi/0.55.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-GIfgOvuF8MpU52bprhwtDEtx0gmVIGOepM8bw0lH/TSMD0rg1Xp+5Y53kPG8rFVdcpbNANlhDQ5mEVVPO3/2Tg==",
+      "path": "spectre.console.ansi/0.55.0",
+      "hashPath": "spectre.console.ansi.0.55.0.nupkg.sha512"
+    },
+    "Spectre.Console.Cli/0.55.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-cFJTB1te4eaAICd4Zp+8T/kiRn1ikQxgGqmoNarb1qoQ/7LzHAvVQ62x5U9GW3E0QI7sZLcXIIoq4CpqgTx42Q==",
+      "path": "spectre.console.cli/0.55.0",
+      "hashPath": "spectre.console.cli.0.55.0.nupkg.sha512"
+    },
+    "NetLog.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

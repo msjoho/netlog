@@ -1,0 +1,15 @@
+{
+  "runName": "test-run",
+  "createdUtc": "2026-06-04T00:00:00Z",
+  "schedule": { "startUtc": "2026-06-04T00:00:00Z", "stopUtc": "2999-01-01T00:00:00Z" },
+  "targets": ["SERVER1"],
+  "serviceAccount": "DOMAIN\\svc-netlog",
+  "settings": {
+    "archiveLevel": "Merged",
+    "pollIntervalSeconds": 0,
+    "archiveIntervalMinutes": 0,
+    "cacheLifetimeDays": 7,
+    "maxCacheSizeMb": null,
+    "resolveHostnames": false
+  }
+}

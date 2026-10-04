@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "dgSpecHash": "TjDgsHJmxKw=",
+  "success": true,
+  "projectFilePath": "C:\\code\\claudecode\\network-activity-logger\\src\\NetLog.Cli\\NetLog.Cli.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\MartinJoho\\.nuget\\packages\\spectre.console\\0.55.0\\spectre.console.0.55.0.nupkg.sha512",
+    "C:\\Users\\MartinJoho\\.nuget\\packages\\spectre.console.ansi\\0.55.0\\spectre.console.ansi.0.55.0.nupkg.sha512",
+    "C:\\Users\\MartinJoho\\.nuget\\packages\\spectre.console.cli\\0.55.0\\spectre.console.cli.0.55.0.nupkg.sha512",
+    "C:\\Users\\MartinJoho\\.nuget\\packages\\microsoft.netcore.app.ref\\9.0.17\\microsoft.netcore.app.ref.9.0.17.nupkg.sha512",
+    "C:\\Users\\MartinJoho\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\9.0.17\\microsoft.windowsdesktop.app.ref.9.0.17.nupkg.sha512",
+    "C:\\Users\\MartinJoho\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\9.0.17\\microsoft.aspnetcore.app.ref.9.0.17.nupkg.sha512",
+    "C:\\Users\\MartinJoho\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\9.0.17\\microsoft.netcore.app.host.win-x64.9.0.17.nupkg.sha512"
+  ],
+  "logs": []
+}

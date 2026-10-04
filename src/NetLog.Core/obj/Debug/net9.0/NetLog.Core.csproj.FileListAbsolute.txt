@@ -1,0 +1,11 @@
+C:\code\claudecode\network-activity-logger\src\NetLog.Core\bin\Debug\net9.0\NetLog.Core.deps.json
+C:\code\claudecode\network-activity-logger\src\NetLog.Core\bin\Debug\net9.0\NetLog.Core.dll
+C:\code\claudecode\network-activity-logger\src\NetLog.Core\bin\Debug\net9.0\NetLog.Core.pdb
+C:\code\claudecode\network-activity-logger\src\NetLog.Core\obj\Debug\net9.0\NetLog.Core.GeneratedMSBuildEditorConfig.editorconfig
+C:\code\claudecode\network-activity-logger\src\NetLog.Core\obj\Debug\net9.0\NetLog.Core.AssemblyInfoInputs.cache
+C:\code\claudecode\network-activity-logger\src\NetLog.Core\obj\Debug\net9.0\NetLog.Core.AssemblyInfo.cs
+C:\code\claudecode\network-activity-logger\src\NetLog.Core\obj\Debug\net9.0\NetLog.Core.csproj.CoreCompileInputs.cache
+C:\code\claudecode\network-activity-logger\src\NetLog.Core\obj\Debug\net9.0\NetLog.Core.dll
+C:\code\claudecode\network-activity-logger\src\NetLog.Core\obj\Debug\net9.0\refint\NetLog.Core.dll
+C:\code\claudecode\network-activity-logger\src\NetLog.Core\obj\Debug\net9.0\NetLog.Core.pdb
+C:\code\claudecode\network-activity-logger\src\NetLog.Core\obj\Debug\net9.0\ref\NetLog.Core.dll

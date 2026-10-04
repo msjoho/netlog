@@ -1,0 +1,308 @@
+{
+  "version": 4,
+  "targets": {
+    "net9.0": {
+      "Spectre.Console/0.55.0": {
+        "type": "package",
+        "dependencies": {
+          "Spectre.Console.Ansi": "0.55.0"
+        },
+        "compile": {
+          "lib/net9.0/Spectre.Console.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net9.0/Spectre.Console.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Spectre.Console.Ansi/0.55.0": {
+        "type": "package",
+        "compile": {
+          "lib/net9.0/Spectre.Console.Ansi.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net9.0/Spectre.Console.Ansi.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Spectre.Console.Cli/0.55.0": {
+        "type": "package",
+        "dependencies": {
+          "Spectre.Console": "0.55.0"
+        },
+        "compile": {
+          "lib/net9.0/Spectre.Console.Cli.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net9.0/Spectre.Console.Cli.dll": {
+            "related": ".xml"
+          }
+        },
+        "resource": {
+          "lib/net9.0/de/Spectre.Console.Cli.resources.dll": {
+            "locale": "de"
+          },
+          "lib/net9.0/es/Spectre.Console.Cli.resources.dll": {
+            "locale": "es"
+          },
+          "lib/net9.0/fr/Spectre.Console.Cli.resources.dll": {
+            "locale": "fr"
+          },
+          "lib/net9.0/it/Spectre.Console.Cli.resources.dll": {
+            "locale": "it"
+          },
+          "lib/net9.0/ja/Spectre.Console.Cli.resources.dll": {
+            "locale": "ja"
+          },
+          "lib/net9.0/ko/Spectre.Console.Cli.resources.dll": {
+            "locale": "ko"
+          },
+          "lib/net9.0/pt/Spectre.Console.Cli.resources.dll": {
+            "locale": "pt"
+          },
+          "lib/net9.0/ru/Spectre.Console.Cli.resources.dll": {
+            "locale": "ru"
+          },
+          "lib/net9.0/sv/Spectre.Console.Cli.resources.dll": {
+            "locale": "sv"
+          },
+          "lib/net9.0/zh-Hans/Spectre.Console.Cli.resources.dll": {
+            "locale": "zh-Hans"
+          }
+        }
+      },
+      "NetLog.Core/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v9.0",
+        "compile": {
+          "bin/placeholder/NetLog.Core.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/NetLog.Core.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Spectre.Console/0.55.0": {
+      "sha512": "2TVhUHFsDux0Z+y2Hv4bFsOMuON4SuotEEKkMparFkp5Rm259naaaEQrN4Sv6C1cbsiGKPjfkJDGgUp+hZPjTw==",
+      "type": "package",
+      "path": "spectre.console/0.55.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "lib/net10.0/Spectre.Console.dll",
+        "lib/net10.0/Spectre.Console.xml",
+        "lib/net8.0/Spectre.Console.dll",
+        "lib/net8.0/Spectre.Console.xml",
+        "lib/net9.0/Spectre.Console.dll",
+        "lib/net9.0/Spectre.Console.xml",
+        "lib/netstandard2.0/Spectre.Console.dll",
+        "lib/netstandard2.0/Spectre.Console.xml",
+        "logo.png",
+        "spectre.console.0.55.0.nupkg.sha512",
+        "spectre.console.nuspec"
+      ]
+    },
+    "Spectre.Console.Ansi/0.55.0": {
+      "sha512": "GIfgOvuF8MpU52bprhwtDEtx0gmVIGOepM8bw0lH/TSMD0rg1Xp+5Y53kPG8rFVdcpbNANlhDQ5mEVVPO3/2Tg==",
+      "type": "package",
+      "path": "spectre.console.ansi/0.55.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "lib/net10.0/Spectre.Console.Ansi.dll",
+        "lib/net10.0/Spectre.Console.Ansi.xml",
+        "lib/net8.0/Spectre.Console.Ansi.dll",
+        "lib/net8.0/Spectre.Console.Ansi.xml",
+        "lib/net9.0/Spectre.Console.Ansi.dll",
+        "lib/net9.0/Spectre.Console.Ansi.xml",
+        "lib/netstandard2.0/Spectre.Console.Ansi.dll",
+        "lib/netstandard2.0/Spectre.Console.Ansi.xml",
+        "logo.png",
+        "spectre.console.ansi.0.55.0.nupkg.sha512",
+        "spectre.console.ansi.nuspec"
+      ]
+    },
+    "Spectre.Console.Cli/0.55.0": {
+      "sha512": "cFJTB1te4eaAICd4Zp+8T/kiRn1ikQxgGqmoNarb1qoQ/7LzHAvVQ62x5U9GW3E0QI7sZLcXIIoq4CpqgTx42Q==",
+      "type": "package",
+      "path": "spectre.console.cli/0.55.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "lib/net10.0/Spectre.Console.Cli.dll",
+        "lib/net10.0/Spectre.Console.Cli.xml",
+        "lib/net10.0/de/Spectre.Console.Cli.resources.dll",
+        "lib/net10.0/es/Spectre.Console.Cli.resources.dll",
+        "lib/net10.0/fr/Spectre.Console.Cli.resources.dll",
+        "lib/net10.0/it/Spectre.Console.Cli.resources.dll",
+        "lib/net10.0/ja/Spectre.Console.Cli.resources.dll",
+        "lib/net10.0/ko/Spectre.Console.Cli.resources.dll",
+        "lib/net10.0/pt/Spectre.Console.Cli.resources.dll",
+        "lib/net10.0/ru/Spectre.Console.Cli.resources.dll",
+        "lib/net10.0/sv/Spectre.Console.Cli.resources.dll",
+        "lib/net10.0/zh-Hans/Spectre.Console.Cli.resources.dll",
+        "lib/net8.0/Spectre.Console.Cli.dll",
+        "lib/net8.0/Spectre.Console.Cli.xml",
+        "lib/net8.0/de/Spectre.Console.Cli.resources.dll",
+        "lib/net8.0/es/Spectre.Console.Cli.resources.dll",
+        "lib/net8.0/fr/Spectre.Console.Cli.resources.dll",
+        "lib/net8.0/it/Spectre.Console.Cli.resources.dll",
+        "lib/net8.0/ja/Spectre.Console.Cli.resources.dll",
+        "lib/net8.0/ko/Spectre.Console.Cli.resources.dll",
+        "lib/net8.0/pt/Spectre.Console.Cli.resources.dll",
+        "lib/net8.0/ru/Spectre.Console.Cli.resources.dll",
+        "lib/net8.0/sv/Spectre.Console.Cli.resources.dll",
+        "lib/net8.0/zh-Hans/Spectre.Console.Cli.resources.dll",
+        "lib/net9.0/Spectre.Console.Cli.dll",
+        "lib/net9.0/Spectre.Console.Cli.xml",
+        "lib/net9.0/de/Spectre.Console.Cli.resources.dll",
+        "lib/net9.0/es/Spectre.Console.Cli.resources.dll",
+        "lib/net9.0/fr/Spectre.Console.Cli.resources.dll",
+        "lib/net9.0/it/Spectre.Console.Cli.resources.dll",
+        "lib/net9.0/ja/Spectre.Console.Cli.resources.dll",
+        "lib/net9.0/ko/Spectre.Console.Cli.resources.dll",
+        "lib/net9.0/pt/Spectre.Console.Cli.resources.dll",
+        "lib/net9.0/ru/Spectre.Console.Cli.resources.dll",
+        "lib/net9.0/sv/Spectre.Console.Cli.resources.dll",
+        "lib/net9.0/zh-Hans/Spectre.Console.Cli.resources.dll",
+        "lib/netstandard2.0/Spectre.Console.Cli.dll",
+        "lib/netstandard2.0/Spectre.Console.Cli.xml",
+        "lib/netstandard2.0/de/Spectre.Console.Cli.resources.dll",
+        "lib/netstandard2.0/es/Spectre.Console.Cli.resources.dll",
+        "lib/netstandard2.0/fr/Spectre.Console.Cli.resources.dll",
+        "lib/netstandard2.0/it/Spectre.Console.Cli.resources.dll",
+        "lib/netstandard2.0/ja/Spectre.Console.Cli.resources.dll",
+        "lib/netstandard2.0/ko/Spectre.Console.Cli.resources.dll",
+        "lib/netstandard2.0/pt/Spectre.Console.Cli.resources.dll",
+        "lib/netstandard2.0/ru/Spectre.Console.Cli.resources.dll",
+        "lib/netstandard2.0/sv/Spectre.Console.Cli.resources.dll",
+        "lib/netstandard2.0/zh-Hans/Spectre.Console.Cli.resources.dll",
+        "logo.png",
+        "spectre.console.cli.0.55.0.nupkg.sha512",
+        "spectre.console.cli.nuspec"
+      ]
+    },
+    "NetLog.Core/1.0.0": {
+      "type": "project",
+      "path": "../NetLog.Core/NetLog.Core.csproj",
+      "msbuildProject": "../NetLog.Core/NetLog.Core.csproj"
+    }
+  },
+  "projectFileDependencyGroups": {
+    "net9.0": [
+      "NetLog.Core >= 1.0.0",
+      "Spectre.Console >= 0.55.0",
+      "Spectre.Console.Cli >= 0.55.0"
+    ]
+  },
+  "packageFolders": {
+    "C:\\Users\\MartinJoho\\.nuget\\packages\\": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "C:\\code\\claudecode\\network-activity-logger\\src\\NetLog.Cli\\NetLog.Cli.csproj",
+      "projectName": "netlog",
+      "projectPath": "C:\\code\\claudecode\\network-activity-logger\\src\\NetLog.Cli\\NetLog.Cli.csproj",
+      "packagesPath": "C:\\Users\\MartinJoho\\.nuget\\packages\\",
+      "outputPath": "C:\\code\\claudecode\\network-activity-logger\\src\\NetLog.Cli\\obj\\",
+      "projectStyle": "PackageReference",
+      "configFilePaths": [
+        "C:\\Users\\MartinJoho\\AppData\\Roaming\\NuGet\\NuGet.Config"
+      ],
+      "originalTargetFrameworks": [
+        "net9.0"
+      ],
+      "sources": {
+        "C:\\code\\yco_gitlab\\.dune-localfeed": {},
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "net9.0": {
+          "framework": "net9.0",
+          "targetAlias": "net9.0",
+          "projectReferences": {
+            "C:\\code\\claudecode\\network-activity-logger\\src\\NetLog.Core\\NetLog.Core.csproj": {
+              "projectPath": "C:\\code\\claudecode\\network-activity-logger\\src\\NetLog.Core\\NetLog.Core.csproj"
+            }
+          }
+        }
+      },
+      "warningProperties": {
+        "warnAsError": [
+          "NU1605"
+        ]
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      },
+      "SdkAnalysisLevel": "10.0.300"
+    },
+    "frameworks": {
+      "net9.0": {
+        "framework": "net9.0",
+        "targetAlias": "net9.0",
+        "dependencies": {
+          "Spectre.Console": {
+            "target": "Package",
+            "version": "[0.55.0, )"
+          },
+          "Spectre.Console.Cli": {
+            "target": "Package",
+            "version": "[0.55.0, )"
+          }
+        },
+        "imports": [
+          "net461",
+          "net462",
+          "net47",
+          "net471",
+          "net472",
+          "net48",
+          "net481"
+        ],
+        "assetTargetFallback": true,
+        "warn": true,
+        "downloadDependencies": [
+          {
+            "name": "Microsoft.AspNetCore.App.Ref",
+            "version": "[9.0.17, 9.0.17]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Host.win-x64",
+            "version": "[9.0.17, 9.0.17]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Ref",
+            "version": "[9.0.17, 9.0.17]"
+          },
+          {
+            "name": "Microsoft.WindowsDesktop.App.Ref",
+            "version": "[9.0.17, 9.0.17]"
+          }
+        ],
+        "frameworkReferences": {
+          "Microsoft.NETCore.App": {
+            "privateAssets": "all"
+          }
+        },
+        "runtimeIdentifierGraphPath": "C:\\Users\\MartinJoho\\AppData\\Local\\Microsoft\\dotnet\\sdk\\10.0.301/PortableRuntimeIdentifierGraph.json"
+      }
+    }
+  }
+}
