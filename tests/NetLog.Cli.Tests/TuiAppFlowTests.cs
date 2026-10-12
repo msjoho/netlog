@@ -85,4 +85,45 @@ public class TuiAppFlowTests
 
         Directory.Delete(root, recursive: true);
     }
+
+    [Fact]
+    public void X_in_the_browser_edits_and_saves_the_root_exclusions()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "nlflow_x_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var keys = new List<KeyPress> { KeyPress.Of('r') };
+        keys.AddRange(Type(root)); keys.Add(KeyPress.Enter);          // new root
+        keys.Add(KeyPress.Of('x'));                                    // root exclusions
+        keys.Add(KeyPress.Of('a')); keys.AddRange(Type("user:CORP\\svc-*")); keys.Add(KeyPress.Enter);
+        keys.Add(KeyPress.Enter);                                      // done -> saves
+        keys.Add(KeyPress.Enter);                                      // dismiss "saved" info
+        keys.Add(KeyPress.Of('q'));                                    // quit browser
+
+        var app = new TuiApp(new TestConsole(), new ScriptedKeySource(keys), TempProfile(), new FakeRunner(), () => Now);
+        Assert.Equal(0, app.Run());
+
+        var r = Assert.Single(ExclusionsStore.Load(root));
+        Assert.Equal(new ExclusionRule("user", "CORP\\svc-*"), r);
+        Directory.Delete(root, recursive: true);
+    }
+
+    [Fact]
+    public void X_with_a_corrupt_root_file_shows_the_error_and_does_not_overwrite()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "nlflow_xc_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        File.WriteAllText(ExclusionsStore.PathFor(root), "{ nope");
+        var keys = new List<KeyPress> { KeyPress.Of('r') };
+        keys.AddRange(Type(root)); keys.Add(KeyPress.Enter);
+        keys.Add(KeyPress.Of('x'));
+        keys.Add(KeyPress.Enter);                                      // dismiss error
+        keys.Add(KeyPress.Of('q'));
+
+        var console = new TestConsole();
+        new TuiApp(console, new ScriptedKeySource(keys), TempProfile(), new FakeRunner(), () => Now).Run();
+
+        Assert.Contains("exclusions.json", console.Output);
+        Assert.Equal("{ nope", File.ReadAllText(ExclusionsStore.PathFor(root)));
+        Directory.Delete(root, recursive: true);
+    }
 }

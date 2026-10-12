@@ -14,7 +14,8 @@ public static class RunConfigFactory
         string archiveLevel, int pollSeconds, int archiveMinutes,
         int? cacheDays, int? cacheMb, DateTimeOffset now,
         bool resolveHostnames = true,
-        bool timestamps = false)
+        bool timestamps = false,
+        IReadOnlyList<ExclusionRule>? exclusions = null)
     {
         var schedule = RunSpecParser.BuildSchedule(start, stop, duration, now);
 
@@ -24,7 +25,8 @@ public static class RunConfigFactory
 
         return new RunConfig(
             runName, now, schedule, targetList, account,
-            new RunSettings(archiveLevel, pollSeconds, archiveMinutes, cacheLifetime, cacheMb, resolveHostnames, timestamps));
+            new RunSettings(archiveLevel, pollSeconds, archiveMinutes, cacheLifetime, cacheMb, resolveHostnames, timestamps)
+            { Exclusions = exclusions ?? Array.Empty<ExclusionRule>() });
     }
 
     /// <summary>
@@ -44,12 +46,13 @@ public static class RunConfigFactory
     /// <summary>
     /// Produces a copy with the in-run-editable values changed: the collection end (stop/duration,
     /// relative to the unchanged start) and the mutable settings (poll interval, archive interval,
-    /// cache lifetime). Identity and immutable settings (name, targets, account, archive level, start,
+    /// cache lifetime) and the exclusion list (null keeps the current one). Identity and immutable settings (name, targets, account, archive level, start,
     /// run sequence) are preserved. Throws on invalid schedule input.
     /// </summary>
     public static RunConfig WithEdits(
         RunConfig existing, string? stop, string? duration,
-        int pollSeconds, int archiveMinutes, int? cacheDays, int? cacheMb, DateTimeOffset now)
+        int pollSeconds, int archiveMinutes, int? cacheDays, int? cacheMb, DateTimeOffset now,
+        IReadOnlyList<ExclusionRule>? exclusions = null)
     {
         var schedule = RunSpecParser.BuildSchedule(existing.Schedule.StartUtc.ToString("o"), stop, duration, now);
         var settings = existing.Settings with
@@ -58,6 +61,7 @@ public static class RunConfigFactory
             ArchiveIntervalMinutes = archiveMinutes,
             CacheLifetimeDays = cacheDays,
             MaxCacheSizeMb = cacheMb,
+            Exclusions = exclusions ?? existing.Settings.Exclusions,
         };
         return existing with { Schedule = schedule, Settings = settings };
     }

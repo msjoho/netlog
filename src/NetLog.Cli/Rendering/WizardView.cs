@@ -26,9 +26,12 @@ public static class WizardView
             FieldRow(f, WizardField.ArchiveEvery, "Archive every",   "", f.ArchiveEvery, "m"),
             FieldRow(f, WizardField.Cache,        "Cache lifetime",  "", f.Cache,        "d"),
             FieldRow(f, WizardField.Timestamps,   "Timestamps",      f.Timestamps ? "on" : "off", "", "", textEditable: false),
+            ExclusionsRow(f),
             RuleLine(),
             new Markup($"[{Theme.Gray}]Creates  [/][{Theme.Dim}]{Markup.Escape(rootPath)}\\[/][{Theme.White}]{Markup.Escape(Display(f.RunName, "<name>"))}[/]"),
-            new Markup($"[{Theme.Hint}]i  {Hint(f.Field)}[/]"),
+            f.Field == WizardField.Exclusions && f.RootExclusionsError is not null
+                ? new Markup($"[{Theme.Red}]i  {Markup.Escape(f.RootExclusionsError)}[/]")
+                : new Markup($"[{Theme.Hint}]i  {Hint(f.Field)}[/]"),
             RuleLine(),
             new Markup(Footer(f, currentUser)),
         };
@@ -56,6 +59,23 @@ public static class WizardView
         return new Markup(line);
     }
 
+    private static IRenderable ExclusionsRow(WizardForm f)
+    {
+        var focused = f.Field == WizardField.Exclusions;
+        var cursor = focused ? $"[{Theme.Green}]{Theme.Cursor}[/] " : "  ";
+        var lab = $"[{Theme.Gray}]{"Exclusions",-15}[/]";
+        string value;
+        if (f.RootExclusionsError is not null && !f.ExclusionsEdited)
+            value = $"[{Theme.Red}]invalid root file[/]";
+        else
+        {
+            var n = f.Exclusions?.Count ?? 0;
+            var origin = n > 0 && !f.ExclusionsEdited ? $"  [{Theme.Dim}](from root)[/]" : "";
+            value = $"[{(focused ? Theme.White : Theme.Text)}]{n} rule{(n == 1 ? "" : "s")}[/]{origin}";
+        }
+        return new Markup($"{cursor}{lab} {value}");
+    }
+
     // Start/End are two-mode fields: a prefix label plus an editable string (or a fixed "now").
     private static string StartPrefix(WizardForm f) => f.StartNow ? "" : "Date: ";
     private static string StartEditable(WizardForm f) => f.StartNow ? "now" : f.StartDate;
@@ -78,6 +98,7 @@ public static class WizardView
         WizardField.ArchiveEvery => "How often samples are flushed to the share (minutes).",
         WizardField.Cache        => "Local cache lifetime on each host (days).",
         WizardField.Timestamps   => "Record first/last-seen instants per connection (off keeps the archive time-free).",
+        WizardField.Exclusions   => "Seeded from the root's exclusions.json; this run only — tab to add or remove.",
         _ => "",
     };
 
@@ -93,6 +114,7 @@ public static class WizardView
             WizardField.End          => f.EndDuration ? "switch to date" : "switch to duration",
             WizardField.ArchiveLevel => f.ArchiveLevel == "Merged" ? "switch to Full" : "switch to Merged",
             WizardField.Timestamps   => f.Timestamps ? "switch off" : "switch on",
+            WizardField.Exclusions   => "edit exclusions",
             _ => null,
         };
 

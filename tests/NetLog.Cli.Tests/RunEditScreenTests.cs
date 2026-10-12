@@ -50,4 +50,25 @@ public class RunEditScreenTests
 
         Directory.Delete(dir, recursive: true);
     }
+
+    [Fact]
+    public void Editing_exclusions_and_saving_writes_them_to_run_json()
+    {
+        var dir = WriteRun();
+        var config = RunConfigReader.ReadFile(Path.Combine(dir, "run.json"));
+        var keys = new List<KeyPress> { KeyPress.Down, KeyPress.Down, KeyPress.Down, KeyPress.Down, KeyPress.Tab };   // to Exclusions, open
+        keys.Add(KeyPress.Of('a')); keys.AddRange("process:Teams*".Select(KeyPress.Of)); keys.Add(KeyPress.Enter);
+        keys.Add(KeyPress.Enter);   // editor done
+        keys.Add(KeyPress.Enter);   // save
+
+        var console = new TestConsole();
+        var saved = RunEditScreen.Run(console, new ScriptedKeySource(keys), dir, config, () => Now.AddHours(1));
+
+        Assert.True(saved);
+        var updated = RunConfigReader.ReadFile(Path.Combine(dir, "run.json"));
+        Assert.Equal(new[] { new NetLog.Core.Models.ExclusionRule("process", "Teams*") }, updated.Settings.Exclusions);
+        Assert.Equal(10, updated.Settings.PollIntervalSeconds);        // other fields untouched
+        Assert.Contains("purge matching rows", console.Output);        // the editor's warning was shown
+        Directory.Delete(dir, recursive: true);
+    }
 }

@@ -25,12 +25,21 @@ public static class RunEditView
             Editable(f, RunEditField.Poll, "Poll interval", "", f.Poll, "s"),
             Editable(f, RunEditField.ArchiveEvery, "Archive every", "", f.ArchiveEvery, "m"),
             Editable(f, RunEditField.Cache, "Cache lifetime", "", f.Cache, "d"),
+            ExclusionsRow(f),
             Ui.Rule(),
             new Markup($"[{Theme.Hint}]i  Only the highlighted fields can change during a run; grey values are fixed.[/]"),
             Ui.Rule(),
             new Markup(Footer(f)),
         };
         return new Rows(rows);
+    }
+
+    private static IRenderable ExclusionsRow(RunEditForm f)
+    {
+        var focused = f.Field == RunEditField.Exclusions;
+        var cursor = focused ? $"[{Theme.Green}]{Theme.Cursor}[/] " : "  ";
+        var n = f.Exclusions.Count;
+        return new Markup($"{cursor}[{Theme.Gray}]{"Exclusions",-15}[/] [{(focused ? Theme.White : Theme.Text)}]{n} rule{(n == 1 ? "" : "s")}[/]");
     }
 
     private static IRenderable Locked(string label, string value) =>
@@ -60,6 +69,7 @@ public static class RunEditView
             $"[{Theme.Gray}]{Markup.Escape("[")}[/][{Theme.Green}]{key}[/][{Theme.Gray}]{Markup.Escape("]")} {label}[/]";
         var parts = new List<string> { k("↑↓", "field") };
         if (f.Field == RunEditField.End) parts.Add(k("tab", f.EndDuration ? "switch to date" : "switch to duration"));
+        if (f.Field == RunEditField.Exclusions) parts.Add(k("tab", "edit exclusions"));
         parts.Add(k("enter", "save"));
         parts.Add(k("esc", "cancel"));
         return string.Join("  ", parts);

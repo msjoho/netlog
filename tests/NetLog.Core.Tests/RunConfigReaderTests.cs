@@ -109,4 +109,47 @@ public class RunConfigReaderTests
         Assert.False(RunConfigReader.ReadFile(path).Settings.Timestamps);
         File.Delete(path);
     }
+
+    [Theory]
+    [InlineData("null")]
+    [InlineData("{}")]
+    [InlineData("[{ \"kind\": \"Host\", \"pattern\": \"nas*\" }]")]
+    public void Exclusions_tolerate_null_object_and_missing_direction(string exclusionsJson)
+    {
+        var json = Json.Replace("\"maxCacheSizeMb\": null", "\"maxCacheSizeMb\": null, \"exclusions\": " + exclusionsJson);
+        var path = TempFile(json);
+        var c = RunConfigReader.ReadFile(path);
+        if (exclusionsJson.StartsWith("["))
+        {
+            var r = Assert.Single(c.Settings.Exclusions);
+            Assert.Equal("host", r.Kind);          // normalised
+            Assert.Equal("both", r.Direction);     // defaulted
+        }
+        else Assert.Empty(c.Settings.Exclusions);
+        File.Delete(path);
+    }
+
+    [Fact]
+    public void Exclusions_read_the_optional_port_and_default_it_to_null()
+    {
+        var json = Json.Replace("\"maxCacheSizeMb\": null",
+            "\"maxCacheSizeMb\": null, \"exclusions\": [ { \"kind\": \"host\", \"pattern\": \"a\", \"port\": \" 80, 443 \" }, { \"kind\": \"host\", \"pattern\": \"b\", \"port\": null }, { \"kind\": \"host\", \"pattern\": \"c\" } ]");
+        var path = TempFile(json);
+        var ex = RunConfigReader.ReadFile(path).Settings.Exclusions;
+        Assert.Equal("80,443", ex[0].Port);   // normalised, not validated
+        Assert.Null(ex[1].Port);
+        Assert.Null(ex[2].Port);
+        File.Delete(path);
+    }
+
+    [Fact]
+    public void Exclusions_accept_a_numeric_port_from_a_hand_edited_file()
+    {
+        var json = Json.Replace("\"maxCacheSizeMb\": null",
+            "\"maxCacheSizeMb\": null, \"exclusions\": [ { \"kind\": \"host\", \"pattern\": \"a\", \"port\": 445 } ]");
+        var path = TempFile(json);
+        var r = Assert.Single(RunConfigReader.ReadFile(path).Settings.Exclusions);
+        Assert.Equal("445", r.Port);
+        File.Delete(path);
+    }
 }

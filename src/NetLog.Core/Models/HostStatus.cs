@@ -6,4 +6,5 @@ public sealed record HostStatus(
     DateTimeOffset LastRunUtc,
     int Pid,
     int TotalConnections,
-    int TotalPolls);
+    int TotalPolls,
+    int? ExcludedCount = null);   // absent in status files from collectors without exclusions => rendered "n/a"

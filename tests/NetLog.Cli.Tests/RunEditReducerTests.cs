@@ -63,4 +63,18 @@ public class RunEditReducerTests
         Assert.Equal(RunEditCommand.Save, RunEditReducer.Reduce(f, KeyPress.Enter).Cmd);
         Assert.Equal(RunEditCommand.Cancel, RunEditReducer.Reduce(f, KeyPress.Esc).Cmd);
     }
+
+    [Fact]
+    public void Exclusions_field_is_last_prefilled_from_config_and_tab_opens_the_editor()
+    {
+        var rules = new[] { new ExclusionRule("host", "nas*") };
+        var cfg = Config() with { Settings = Config().Settings with { Exclusions = rules } };
+        var f = RunEditForm.From(cfg);
+        Assert.Equal(rules, f.Exclusions);
+        Assert.Equal(5, RunEditForm.FieldCount);
+        var atEx = f with { FieldIndex = (int)RunEditField.Exclusions };
+        Assert.Equal("", atEx.Active);
+        Assert.Equal(atEx, RunEditReducer.Reduce(atEx, KeyPress.Of('x')).Form);        // typing ignored
+        Assert.Equal(RunEditCommand.EditExclusions, RunEditReducer.Reduce(atEx, KeyPress.Tab).Cmd);
+    }
 }

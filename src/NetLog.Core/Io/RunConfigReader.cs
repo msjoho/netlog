@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using NetLog.Core.Models;
 
 namespace NetLog.Core.Io;
@@ -34,8 +35,32 @@ public static class RunConfigReader
                 dto.Settings.CacheLifetimeDays,
                 dto.Settings.MaxCacheSizeMb,
                 dto.Settings.ResolveHostnames ?? true,      // absent in configs from older CLIs
-                dto.Settings.Timestamps ?? false),          // absent in configs from older CLIs
+                dto.Settings.Timestamps ?? false)           // absent in configs from older CLIs
+            {
+                // Absent / null / non-array in older or hand-edited configs => no rules. Each rule is
+                // normalised (lower-case kind / direction, default "both"); NOT validated here - a bad
+                // hand-edited rule must not make the run unreadable; the collector logs and skips it.
+                Exclusions = ReadExclusions(dto.Settings.Exclusions)
+                    .Select(e => new ExclusionRule(e.Kind, e.Pattern, e.Direction ?? "both", e.Note, e.Port).Normalized())
+                    .ToList(),
+            },
             dto.RunSequence ?? 1);                         // absent in configs from older CLIs
+    }
+
+    private static List<ExclusionDto> ReadExclusions(JsonElement? el)
+    {
+        if (el is not { ValueKind: JsonValueKind.Array } arr) return new();
+        return JsonSerializer.Deserialize<List<ExclusionDto>>(arr.GetRawText(), Options) ?? new();
+    }
+
+    private sealed class ExclusionDto
+    {
+        public string Kind { get; set; } = "";
+        public string Pattern { get; set; } = "";
+        public string? Direction { get; set; }
+        public string? Note { get; set; }
+        [JsonConverter(typeof(LenientStringConverter))]
+        public string? Port { get; set; }   // a hand-edited "port": 445 (number) must not make the run unreadable
     }
 
     private sealed class Dto
@@ -64,5 +89,6 @@ public static class RunConfigReader
         public int? MaxCacheSizeMb { get; set; }
         public bool? ResolveHostnames { get; set; }
         public bool? Timestamps { get; set; }
+        public JsonElement? Exclusions { get; set; }
     }
 }

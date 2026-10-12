@@ -52,6 +52,9 @@ public sealed class TuiApp
                     case BrowserResult.OpenRun:
                         DashboardScreen.Run(_console, _keys, Path.Combine(root, folder!), actions, _now, _refreshSeconds);
                         break;
+                    case BrowserResult.Exclusions:
+                        actions.EditRootExclusions(root);
+                        break;
                     case BrowserResult.NewRun:
                         var created = WizardScreen.Run(_console, _keys, root, currentUser, _now);
                         if (created is not null)

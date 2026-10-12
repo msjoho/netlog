@@ -56,4 +56,42 @@ public class WizardViewTests
         Assert.Contains("off", o);
         Assert.Contains("switch on", o);
     }
+
+    [Fact]
+    public void Exclusions_row_shows_count_origin_and_tab_label()
+    {
+        var rules = new[] { new NetLog.Core.Models.ExclusionRule("host", "nas*"), new NetLog.Core.Models.ExclusionRule("user", "x") };
+        var f = WizardForm.Default() with { FieldIndex = (int)WizardField.Exclusions, Exclusions = rules };
+        var o = Render(f);
+        Assert.Contains("Exclusions", o);
+        Assert.Contains("2 rules", o);
+        Assert.Contains("(from root)", o);
+        Assert.Contains("edit exclusions", o);        // footer tab label
+        Assert.DoesNotContain("(from root)", Render(f with { ExclusionsEdited = true }));
+        Assert.Contains("0 rules", Render(WizardForm.Default()));
+    }
+
+    [Fact]
+    public void Invalid_root_file_is_shown_in_red_not_hidden()
+    {
+        var f = WizardForm.Default() with { FieldIndex = (int)WizardField.Exclusions, RootExclusionsError = "exclusions.json rule 2: Unknown kind 'port'" };
+        var o = Render(f);
+        Assert.Contains("invalid root file", o);
+        Assert.Contains("Unknown kind 'port'", o);
+    }
+
+    [Fact]
+    public void Edited_rules_under_a_corrupt_root_show_their_count()
+    {
+        var rules = new[] { new NetLog.Core.Models.ExclusionRule("host", "nas*"), new NetLog.Core.Models.ExclusionRule("user", "x") };
+        var f = WizardForm.Default() with
+        {
+            RootExclusionsError = "exclusions.json rule 2: Unknown kind 'port'",
+            ExclusionsEdited = true,
+            Exclusions = rules,
+        };
+        var o = Render(f);
+        Assert.Contains("2 rules", o);
+        Assert.DoesNotContain("invalid root file", o);
+    }
 }

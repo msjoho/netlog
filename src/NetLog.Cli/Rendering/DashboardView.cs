@@ -18,7 +18,7 @@ public static class DashboardView
 {
     // Fixed column widths (chars) — hand-spaced to match the mockup and keep the live frame steady.
     private const int Label = 13;
-    private const int Name = 20, Live = 15, Conns = 7, Polls = 9;
+    private const int Name = 20, Live = 15, Conns = 7, Polls = 9, Excl = 7;
     private const int Dir = 3, TgtName = 20, TgtCount = 6, ProcName = 18;
 
     public static IRenderable Render(DashboardViewState s, TimeZoneInfo tz)
@@ -68,6 +68,13 @@ public static class DashboardView
                     $"[{Theme.Text}]in {stats.IncomingCount:n0} / out {stats.OutgoingCount:n0}[/]";
         yield return new Markup("  " + L("Connections", Label, Theme.Gray) + conns);
 
+        if (r.ExclusionRuleCount > 0 || r.ExcludedTotal is not null)
+        {
+            var dropped = r.ExcludedTotal is { } d ? d.ToString("n0") : "n/a";
+            yield return new Markup("  " + L("Exclusions", Label, Theme.Gray) +
+                $"[{Theme.Text}]{r.ExclusionRuleCount} rule{(r.ExclusionRuleCount == 1 ? "" : "s")} · {dropped} dropped[/]");
+        }
+
         var last = r.LastUpdateUtc is { } lu
             ? $"[{Theme.Text}]{TimeFormat.Local(lu, tz)}[/]   [{Theme.Gray}]({TimeFormat.Ago(lu, s.Now)})[/]"
             : $"[{Theme.Dim}]none yet[/]";
@@ -77,7 +84,8 @@ public static class DashboardView
     private static IEnumerable<IRenderable> Hosts(RunStatusReport r, DashboardViewState s)
     {
         yield return new Markup("  " + L("HOSTS", Name, Theme.Gray) + L("", Live, Theme.Gray) +
-                                R("conns", Conns, Theme.Gray) + R("polls", Polls, Theme.Gray) + "  " + L("last heartbeat", 14, Theme.Gray));
+                                R("conns", Conns, Theme.Gray) + R("polls", Polls, Theme.Gray) +
+                                R("excl", Excl, Theme.Gray) + "  " + L("last heartbeat", 14, Theme.Gray));
 
         if (r.Hosts.Count == 0)
         {
@@ -96,6 +104,7 @@ public static class DashboardView
 
             var cursor = i == s.CursorIndex ? $"[{Theme.Green}]{Theme.Cursor}[/] " : "  ";
             var hb = h.LastRunUtc is { } hl ? TimeFormat.Ago(hl, s.Now) : "never";
+            var excl = h.ExcludedCount?.ToString("n0") ?? "n/a";
 
             yield return new Markup(
                 cursor +
@@ -103,6 +112,7 @@ public static class DashboardView
                 $"[{liveColor}]{Markup.Escape(Fit($"{glyph} {label}", Live, false))}[/]" +
                 R(h.ConnectionCount.ToString("n0"), Conns, cellColor) +
                 R(h.TotalPolls?.ToString("n0") ?? "–", Polls, cellColor) +
+                R(excl, Excl, cellColor) +
                 "  " + L(hb, 14, cellColor));
         }
     }

@@ -18,7 +18,7 @@ public static class HostStatusReader
         {
             var dto = JsonSerializer.Deserialize<Dto>(text, Options);
             if (dto is null) return null;
-            return new HostStatus(dto.LastRunUtc, dto.Pid, dto.TotalConnections, dto.TotalPolls);
+            return new HostStatus(dto.LastRunUtc, dto.Pid, dto.TotalConnections, dto.TotalPolls, dto.ExcludedCount);
         }
         catch (JsonException)
         {
@@ -33,5 +33,6 @@ public static class HostStatusReader
         public int Pid { get; set; }
         public int TotalConnections { get; set; }
         public int TotalPolls { get; set; }
+        public int? ExcludedCount { get; set; }
     }
 }

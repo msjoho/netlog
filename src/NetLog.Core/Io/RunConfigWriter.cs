@@ -34,7 +34,10 @@ public static class RunConfigWriter
                 CacheLifetimeDays = config.Settings.CacheLifetimeDays,
                 MaxCacheSizeMb = config.Settings.MaxCacheSizeMb,
                 ResolveHostnames = config.Settings.ResolveHostnames,
-                Timestamps = config.Settings.Timestamps
+                Timestamps = config.Settings.Timestamps,
+                Exclusions = config.Settings.Exclusions
+                    .Select(r => new ExclusionDto { Kind = r.Kind, Pattern = r.Pattern, Direction = r.Direction, Note = r.Note, Port = r.Port })
+                    .ToList()
             }
         };
 
@@ -68,5 +71,15 @@ public static class RunConfigWriter
         public int? MaxCacheSizeMb { get; set; }
         public bool ResolveHostnames { get; set; } = true;
         public bool Timestamps { get; set; }
+        public List<ExclusionDto> Exclusions { get; set; } = new();
+    }
+
+    private sealed class ExclusionDto
+    {
+        public string Kind { get; set; } = "";
+        public string Pattern { get; set; } = "";
+        public string Direction { get; set; } = "both";
+        public string? Note { get; set; }
+        public string? Port { get; set; }
     }
 }

@@ -61,6 +61,14 @@ public sealed class NewSettings : CommandSettings
     [Description("Record first/last-seen timestamps per connection (off by default).")]
     public bool Timestamps { get; set; }
 
+    [CommandOption("--exclude <RULE>")]
+    [Description("Exclusion rule kind:pattern[[@in|@out]][[:port]] (repeatable), e.g. --exclude \"process:Teams*\" --exclude host:10.0.0.0/8@out --exclude process:System@in:445")]
+    public string[] Exclude { get; set; } = Array.Empty<string>();
+
+    [CommandOption("--no-root-exclusions")]
+    [Description("Do not inherit <root>\\exclusions.json (the run folder's parent).")]
+    public bool NoRootExclusions { get; set; }
+
     public override ValidationResult Validate()
     {
         if (string.IsNullOrWhiteSpace(Path)) return ValidationResult.Error("--path is required");
@@ -74,20 +82,53 @@ public sealed class NewSettings : CommandSettings
 
 public sealed class NewCommand : Command<NewSettings>
 {
+    /// <summary>Root template (unless disabled) followed by the --exclude rules, in order.
+    /// Throws FormatException for a bad --exclude and InvalidDataException for a corrupt root file.</summary>
+    public static IReadOnlyList<ExclusionRule> ResolveExclusions(string runPath, string[] exclude, bool noRoot)
+    {
+        var rules = new List<ExclusionRule>();
+        if (!noRoot)
+        {
+            string? root = null;
+            try
+            {
+                // Resolve first: GetDirectoryName("audit") is "" and would skip the root silently.
+                var trimmed = System.IO.Path.GetFullPath(runPath).TrimEnd('\\', '/');
+                root = System.IO.Path.GetDirectoryName(trimmed);
+            }
+            catch (ArgumentException) { /* unparsable path: no root to inherit from */ }
+            // A UNC share root (\\server\share) has no parent folder — nothing to inherit.
+            if (!string.IsNullOrEmpty(root) && !IsUncServerOnly(root))
+                rules.AddRange(ExclusionsStore.Load(root));
+        }
+        foreach (var text in exclude) rules.Add(ExclusionRuleParser.Parse(text));
+        return rules;
+    }
+
+    private static bool IsUncServerOnly(string path)
+    {
+        var t = path.TrimEnd('\\', '/');
+        return (t.StartsWith(@"\\", StringComparison.Ordinal) || t.StartsWith("//", StringComparison.Ordinal))
+            && t.Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries).Length < 2;
+    }
+
     protected override int Execute(CommandContext context, NewSettings settings, CancellationToken cancellationToken)
     {
         RunConfig config;
         try
         {
+            var exclusions = ResolveExclusions(settings.Path, settings.Exclude, settings.NoRootExclusions);
             config = RunConfigFactory.Create(
                 settings.Path, settings.Targets, settings.Account,
                 settings.Start, settings.Stop, settings.Duration,
                 settings.ArchiveLevel, settings.PollSeconds, settings.ArchiveMinutes,
                 settings.CacheDays, settings.CacheMb, DateTimeOffset.UtcNow,
                 resolveHostnames: !settings.NoResolveHostnames,
-                timestamps: settings.Timestamps);
+                timestamps: settings.Timestamps,
+                exclusions: exclusions);
         }
-        catch (Exception ex) when (ex is ArgumentException or FormatException)
+        catch (Exception ex) when (ex is ArgumentException or FormatException or InvalidDataException
+                                       or IOException or UnauthorizedAccessException)
         {
             AnsiConsole.MarkupLine($"[red]Invalid run configuration:[/] {Markup.Escape(ex.Message)}");
             return 1;
@@ -123,6 +164,7 @@ public sealed class NewCommand : Command<NewSettings>
         AnsiConsole.MarkupLine($"[green]Created run[/] '{Markup.Escape(config.RunName)}' [grey]->[/] {Markup.Escape(runJson)}");
         AnsiConsole.MarkupLine($"Targets: {Markup.Escape(string.Join(", ", config.Targets))}");
         AnsiConsole.MarkupLine($"Window:  {config.Schedule.StartUtc:u} -> {config.Schedule.StopUtc:u}");
+        AnsiConsole.MarkupLine($"Exclusions: {config.Settings.Exclusions.Count} rule(s)");
         AnsiConsole.MarkupLine("[grey]Run 'netlog start --path <path>' to deploy.[/]");
         return 0;
     }

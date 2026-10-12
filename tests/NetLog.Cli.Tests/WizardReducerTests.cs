@@ -24,7 +24,7 @@ public class WizardReducerTests
     {
         Assert.Equal(1, WizardReducer.Reduce(At(WizardField.RunName), CurrentUser, KeyPress.Down).Form.FieldIndex);
         Assert.Equal(0, WizardReducer.Reduce(At(WizardField.RunName), CurrentUser, KeyPress.Up).Form.FieldIndex);
-        Assert.Equal((int)WizardField.Timestamps, WizardReducer.Reduce(At(WizardField.Timestamps), CurrentUser, KeyPress.Down).Form.FieldIndex);
+        Assert.Equal((int)WizardField.Exclusions, WizardReducer.Reduce(At(WizardField.Exclusions), CurrentUser, KeyPress.Down).Form.FieldIndex);
     }
 
     [Fact]
@@ -165,5 +165,27 @@ public class WizardReducerTests
     {
         var f = Form() with { Timestamps = true };
         Assert.True(WizardReducer.ToAnswers(f, @"\\share\runs").Timestamps);
+    }
+
+    [Fact]
+    public void Exclusions_is_the_last_field_and_tab_requests_the_editor()
+    {
+        Assert.Equal(11, WizardForm.FieldCount);
+        var f = At(WizardField.Exclusions);
+        Assert.Null(f.Active);                                            // not a text field
+        Assert.Equal(f, WizardReducer.Reduce(f, CurrentUser, KeyPress.Of('x')).Form);   // typing is ignored
+        var (next, cmd) = WizardReducer.Reduce(f, CurrentUser, KeyPress.Tab);
+        Assert.Equal(WizardCommand.EditExclusions, cmd);
+        Assert.Equal(f, next);
+        Assert.Equal((int)WizardField.Exclusions, WizardReducer.Reduce(At(WizardField.Timestamps), CurrentUser, KeyPress.Down).Form.FieldIndex);
+    }
+
+    [Fact]
+    public void ToAnswers_carries_the_exclusion_list()
+    {
+        var rules = new[] { new NetLog.Core.Models.ExclusionRule("host", "nas*") };
+        var a = WizardReducer.ToAnswers(Form() with { RunName = "r", Exclusions = rules }, @"\\s\root");
+        Assert.Same(rules, a.Exclusions);
+        Assert.Null(WizardReducer.ToAnswers(Form() with { RunName = "r" }, @"\\s\root").Exclusions);
     }
 }

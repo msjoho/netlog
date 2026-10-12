@@ -108,4 +108,41 @@ public class ReportBuilderTests
         Assert.Null(r.LastUpdateUtc);
         Assert.Equal(RunState.Stalled, r.State); // in window, no heartbeat
     }
+
+    private static RunConfig Config() => Data().Config;
+
+    [Fact]
+    public void Excluded_total_sums_only_reporting_hosts_and_is_null_when_none_report()
+    {
+        var none = Array.Empty<ConnectionRecord>();
+        var reporting = new HostData("A", new HostStatus(Start, 1, 0, 1, ExcludedCount: 100), none);
+        var reporting2 = new HostData("B", new HostStatus(Start, 1, 0, 1, ExcludedCount: 4), none);
+        var legacy = new HostData("C", new HostStatus(Start, 1, 0, 1), none);
+        var silent = new HostData("D", null, none);
+
+        var mixed = ReportBuilder.Build(new RunData(Config(), new[] { reporting, reporting2, legacy, silent }), Start);
+        Assert.Equal(104, mixed.ExcludedTotal);
+        Assert.Equal(100, mixed.Hosts[0].ExcludedCount);
+        Assert.Null(mixed.Hosts[2].ExcludedCount);
+        Assert.Null(mixed.Hosts[3].ExcludedCount);
+
+        var old = ReportBuilder.Build(new RunData(Config(), new[] { legacy, silent }), Start);
+        Assert.Null(old.ExcludedTotal);
+    }
+
+    [Fact]
+    public void Rule_count_comes_from_the_config()
+    {
+        var cfg = Config() with { Settings = Config().Settings with { Exclusions = new[] { new ExclusionRule("host", "x"), new ExclusionRule("user", "y") } } };
+        Assert.Equal(2, ReportBuilder.Build(new RunData(cfg, Array.Empty<HostData>()), Start).ExclusionRuleCount);
+        Assert.Equal(0, ReportBuilder.Build(new RunData(Config(), Array.Empty<HostData>()), Start).ExclusionRuleCount);
+    }
+
+    [Fact]
+    public void Rule_count_skips_invalid_rules_like_the_collector()
+    {
+        var rules = new[] { new ExclusionRule("host", "x"), new ExclusionRule("port", "443"), new ExclusionRule("user", "y") };
+        var cfg = Config() with { Settings = Config().Settings with { Exclusions = rules } };
+        Assert.Equal(2, ReportBuilder.Build(new RunData(cfg, Array.Empty<HostData>()), Start).ExclusionRuleCount);
+    }
 }

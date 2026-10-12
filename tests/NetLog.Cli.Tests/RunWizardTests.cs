@@ -40,4 +40,15 @@ public class RunWizardTests
         Assert.True(RunConfigReader.ReadFile(Path.Combine(dir, "run.json")).Settings.Timestamps);
         Directory.Delete(Path.GetDirectoryName(dir)!, recursive: true);
     }
+
+    [Fact]
+    public void Build_writes_exclusions_into_run_json()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "nlwiz_" + Guid.NewGuid().ToString("N"));
+        var rules = new[] { new NetLog.Core.Models.ExclusionRule("process", "Teams*") };
+        var a = new WizardAnswers(Path.Combine(root, "audit"), "H1", "svc", "now", null, "7d", "Merged", 10, 60, 7, null, Exclusions: rules);
+        var created = RunWizard.Build(a, new DateTimeOffset(2026, 6, 10, 0, 0, 0, TimeSpan.Zero));
+        Assert.Equal(rules, NetLog.Core.Io.RunConfigReader.ReadFile(Path.Combine(created, "run.json")).Settings.Exclusions);
+        Directory.Delete(root, recursive: true);
+    }
 }

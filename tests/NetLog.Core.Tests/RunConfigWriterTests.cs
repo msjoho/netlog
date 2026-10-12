@@ -63,4 +63,30 @@ public class RunConfigWriterTests
         Assert.Contains("\"timestamps\": true", File.ReadAllText(path));
         Directory.Delete(Path.GetDirectoryName(path)!, recursive: true);
     }
+
+    [Fact]
+    public void Roundtrips_exclusions_and_reads_absent_as_empty()
+    {
+        var rules = new[]
+        {
+            new ExclusionRule("process", "svchost (Dnscache)", "both", "DNS"),
+            new ExclusionRule("host", "10.0.0.0/8", "out"),
+            new ExclusionRule("host", "nas01*", "in", "smb", "445"),
+        };
+        var cfg = Sample() with { Settings = Sample().Settings with { Exclusions = rules } };
+        var path = Path.Combine(Path.GetTempPath(), "nlwrite_" + Guid.NewGuid().ToString("N"), "run.json");
+        RunConfigWriter.WriteFile(path, cfg);
+
+        var text = File.ReadAllText(path);
+        Assert.Contains("\"exclusions\"", text);
+        Assert.Contains("\"kind\": \"process\"", text);
+        Assert.Contains("\"port\": \"445\"", text);
+
+        var back = RunConfigReader.ReadFile(path);
+        Assert.Equal(rules, back.Settings.Exclusions);
+
+        // A config without the key (older CLI) reads as no rules.
+        RunConfigWriter.WriteFile(path, Sample());
+        Assert.Empty(RunConfigReader.ReadFile(path).Settings.Exclusions);
+    }
 }

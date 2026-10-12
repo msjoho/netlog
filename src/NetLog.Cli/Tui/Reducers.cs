@@ -31,7 +31,7 @@ public static class DashboardReducer
 }
 
 // ── Runs browser ─────────────────────────────────────────────────────────────
-public enum BrowserCommand { None, OpenRun, NewRun, ChangeRoot, Quit }
+public enum BrowserCommand { None, OpenRun, NewRun, ChangeRoot, Quit, Exclusions }
 
 public static class BrowserReducer
 {
@@ -45,6 +45,7 @@ public static class BrowserReducer
         }
         if (k.Is('c')) return (cursor, BrowserCommand.NewRun);
         if (k.Is('r')) return (cursor, BrowserCommand.ChangeRoot);
+        if (k.Is('x')) return (cursor, BrowserCommand.Exclusions);
         if (k.Is('q')) return (cursor, BrowserCommand.Quit);
         return (cursor, BrowserCommand.None);
     }

@@ -23,6 +23,24 @@ function Read-NetLogConfig {
         $startRaw = if ($o.schedule.startUtc -is [datetime]) { $o.schedule.startUtc.ToString('o') } else { [string]$o.schedule.startUtc }
         $startUtc = [datetime]::Parse($startRaw, $null, $style)
     }
+    # settings.exclusions: optional array of { kind, pattern, direction?, note? }. Normalised here
+    # (lower-case kind/direction, default 'both'); NOT validated — Start-NetLogCollector logs and
+    # skips bad rules so a hand-edited run.json can never stop collection.
+    $rules = [System.Collections.Generic.List[object]]::new()
+    $exclProp = $o.settings.PSObject.Properties['exclusions']
+    if ($null -ne $exclProp -and $null -ne $exclProp.Value -and ($exclProp.Value -is [array])) {
+        foreach ($r in @($exclProp.Value)) {
+            if ($null -eq $r) { continue }
+            $kind = ''; $pattern = ''; $direction = 'both'; $port = ''
+            if ($null -ne $r.PSObject.Properties['kind'] -and $null -ne $r.kind)         { $kind = ([string]$r.kind).Trim().ToLowerInvariant() }
+            if ($null -ne $r.PSObject.Properties['pattern'] -and $null -ne $r.pattern)   { $pattern = ([string]$r.pattern).Trim() }
+            if ($null -ne $r.PSObject.Properties['direction'] -and $r.direction)        { $direction = ([string]$r.direction).Trim().ToLowerInvariant() }
+            if ($null -ne $r.PSObject.Properties['port'] -and $null -ne $r.port)         { $port = ([string]$r.port) -replace '\s', '' }
+            if (-not $direction) { $direction = 'both' }
+            # Port: optional service-port spec ("443", "80,443", "1024-65535"); '' = any port.
+            $rules.Add([pscustomobject]@{ Kind = $kind; Pattern = $pattern; Direction = $direction; Port = $port })
+        }
+    }
     [pscustomobject]@{
         RunName                = $o.runName
         StartUtc               = $startUtc
@@ -35,5 +53,6 @@ function Read-NetLogConfig {
         MaxCacheSizeMb         = if ($null -ne $o.settings.maxCacheSizeMb)    { [int]$o.settings.maxCacheSizeMb }    else { $null }
         ResolveHostnames       = if ($null -ne $o.settings.resolveHostnames)  { [bool]$o.settings.resolveHostnames } else { $true }
         Timestamps             = if ($null -ne $o.settings.timestamps) { [bool]$o.settings.timestamps } else { $false }
+        Exclusions             = $rules.ToArray()
     }
 }

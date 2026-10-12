@@ -9,7 +9,12 @@ public sealed record RunSettings(
     int? CacheLifetimeDays,
     int? MaxCacheSizeMb,
     bool ResolveHostnames = true,
-    bool Timestamps = false);
+    bool Timestamps = false)
+{
+    /// <summary>Rows matching any rule are never written by the collector. Snapshot of the root
+    /// template at creation; editable during the run (the collector re-reads run.json each cycle).</summary>
+    public IReadOnlyList<ExclusionRule> Exclusions { get; init; } = Array.Empty<ExclusionRule>();
+}
 
 public sealed record RunConfig(
     string RunName,

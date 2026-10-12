@@ -1193,3 +1193,421 @@ Describe 'Start-NetLogCollector (identity enrichment wiring)' {
         Remove-Item -Recurse -Force $tmp
     }
 }
+
+Describe 'Read-NetLogConfig (exclusions)' {
+    BeforeAll {
+        $script:base = '{ "runName":"x", "schedule":{"stopUtc":"2999-01-01T00:00:00Z"}, "settings":{"archiveLevel":"Full","pollIntervalSeconds":0,"archiveIntervalMinutes":0,"cacheLifetimeDays":7,"maxCacheSizeMb":null EXCL } }'
+    }
+    It 'defaults to an empty array when absent' {
+        $c = Read-NetLogConfig -Json ($base -replace 'EXCL', '')
+        @($c.Exclusions).Count | Should -Be 0
+    }
+    It 'reads rules, lower-casing kind/direction and defaulting direction to both' {
+        $json = $base -replace 'EXCL', ', "exclusions": [ { "kind":"Process", "pattern":"svchost (Dnscache)" }, { "kind":"host", "pattern":"10.0.0.0/8", "direction":"OUT", "note":"n" } ]'
+        $c = Read-NetLogConfig -Json $json
+        @($c.Exclusions).Count      | Should -Be 2
+        $c.Exclusions[0].Kind       | Should -Be 'process'
+        $c.Exclusions[0].Pattern    | Should -Be 'svchost (Dnscache)'
+        $c.Exclusions[0].Direction  | Should -Be 'both'
+        $c.Exclusions[1].Direction  | Should -Be 'out'
+    }
+    It 'reads the optional port with whitespace stripped and leaves it empty when absent or null' {
+        $json = $base -replace 'EXCL', ', "exclusions": [ { "kind":"host", "pattern":"a", "port":" 80, 443 " }, { "kind":"host", "pattern":"b", "port":null }, { "kind":"host", "pattern":"c" } ]'
+        $c = Read-NetLogConfig -Json $json
+        $c.Exclusions[0].Port | Should -Be '80,443'
+        $c.Exclusions[1].Port | Should -BeNullOrEmpty
+        $c.Exclusions[2].Port | Should -BeNullOrEmpty
+    }
+    It 'treats null or a non-array as no rules' {
+        @((Read-NetLogConfig -Json ($base -replace 'EXCL', ', "exclusions": null')).Exclusions).Count | Should -Be 0
+        @((Read-NetLogConfig -Json ($base -replace 'EXCL', ', "exclusions": {}')).Exclusions).Count   | Should -Be 0
+    }
+    It 'keeps a single rule as an array' {
+        $c = Read-NetLogConfig -Json ($base -replace 'EXCL', ', "exclusions": [ { "kind":"user", "pattern":"a" } ]')
+        @($c.Exclusions).Count | Should -Be 1
+        $c.Exclusions[0].Kind  | Should -Be 'user'
+    }
+    It 'defaults a whitespace-only direction to both' {
+        $c = Read-NetLogConfig -Json ($base -replace 'EXCL', ', "exclusions": [ { "kind":"user", "pattern":"a", "direction":"  " } ]')
+        $c.Exclusions[0].Direction | Should -Be 'both'
+    }
+}
+
+Describe 'Test-NetLogCidrMatch' {
+    It 'matches IPv4 inside and outside the prefix' {
+        Test-NetLogCidrMatch -IpAddress '10.20.5.7'  -Cidr '10.20.0.0/16' | Should -BeTrue
+        Test-NetLogCidrMatch -IpAddress '10.21.5.7'  -Cidr '10.20.0.0/16' | Should -BeFalse
+        Test-NetLogCidrMatch -IpAddress '192.168.1.130' -Cidr '192.168.1.128/25' | Should -BeTrue   # non-octet prefix
+        Test-NetLogCidrMatch -IpAddress '192.168.1.127' -Cidr '192.168.1.128/25' | Should -BeFalse
+    }
+    It 'matches IPv6 and tolerates a zone id on the address' {
+        Test-NetLogCidrMatch -IpAddress 'fe80::1%12' -Cidr 'fe80::/10'     | Should -BeTrue
+        Test-NetLogCidrMatch -IpAddress '2001:db8::5' -Cidr '2001:db8::/32' | Should -BeTrue
+        Test-NetLogCidrMatch -IpAddress '2001:db9::5' -Cidr '2001:db8::/32' | Should -BeFalse
+    }
+    It 'returns false (never throws) on garbage or family mismatch' {
+        Test-NetLogCidrMatch -IpAddress '10.0.0.1' -Cidr 'fe80::/10'   | Should -BeFalse
+        Test-NetLogCidrMatch -IpAddress 'nope'     -Cidr '10.0.0.0/8'  | Should -BeFalse
+        Test-NetLogCidrMatch -IpAddress '10.0.0.1' -Cidr '10.0.0.0/33' | Should -BeFalse
+        Test-NetLogCidrMatch -IpAddress '10.0.0.1' -Cidr '10.0.0.0'    | Should -BeFalse
+        Test-NetLogCidrMatch -IpAddress ''         -Cidr '10.0.0.0/8'  | Should -BeFalse
+    }
+}
+
+Describe 'Test-NetLogExcluded' {
+    BeforeAll {
+        function script:Rule([string]$k, [string]$p, [string]$d = 'both', [string]$port = '') { [pscustomobject]@{ Kind = $k; Pattern = $p; Direction = $d; Port = $port } }
+        $script:outRec = New-NetLogRecord -Direction 'Outgoing' -Source '10.0.0.1' -SourceHost 'ME' -SourcePort '51000' `
+            -Target '10.20.5.7' -TargetHost 'nas01.corp.local' -TargetPort '445' -Process 'svchost (Dnscache,NlaSvc)' `
+            -Usernames 'CORP\alice;NT AUTHORITY\SYSTEM'
+        $script:inRec  = New-NetLogRecord -Direction 'Incoming' -Source '10.9.9.9' -SourceHost 'scanner' -SourcePort '40000' `
+            -Target '10.0.0.1' -TargetHost 'ME' -TargetPort '3389' -Process 'svchost' -Usernames ''
+        $script:blankHost = New-NetLogRecord -Direction 'Outgoing' -Source '10.0.0.1' -SourceHost 'ME' -SourcePort '1' `
+            -Target 'fe80::1%12' -TargetHost '' -TargetPort '80' -Process 'app'
+    }
+    It 'returns false with no rules' {
+        Test-NetLogExcluded -Record $outRec -Rules @() | Should -BeFalse
+    }
+    It 'port: gates any kind on the service port (TargetPort), honouring lists and ranges' {
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'host' 'nas01*' 'both' '445')      | Should -BeTrue
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'host' 'nas01*' 'both' '446')      | Should -BeFalse
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'host' 'nas01*' 'both' '80,445')   | Should -BeTrue
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'host' 'nas01*' 'both' '1-1000')   | Should -BeTrue
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'host' 'nas01*' 'both' '1024-65535') | Should -BeFalse
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'user' 'CORP\al*' 'out' '445')     | Should -BeTrue
+        Test-NetLogExcluded -Record $inRec  -Rules @(Rule 'process' 'svchost' 'in' '3389')   | Should -BeTrue
+        Test-NetLogExcluded -Record $inRec  -Rules @(Rule 'process' 'svchost' 'in' '40000')  | Should -BeFalse  # the client port is not the service port
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'process' 'svchost' 'in' '445')    | Should -BeFalse  # direction still gates
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'process' 'svchost' 'both' '')     | Should -BeTrue   # empty port = any port
+        Test-NetLogExcluded -Record $inRec  -Rules @(Rule 'process' 'svchost' 'in' '3000-4000')   | Should -BeTrue   # range against TargetPort ...
+        Test-NetLogExcluded -Record $inRec  -Rules @(Rule 'process' 'svchost' 'in' '40000-40001') | Should -BeFalse  # ... not SourcePort
+    }
+    It 'port: a record without a numeric service port never matches a port-qualified rule' {
+        $noPort  = New-NetLogRecord -Direction 'Outgoing' -Source '10.0.0.1' -SourceHost 'ME' -SourcePort '1' -Target '10.2.2.2' -TargetHost 'x' -TargetPort '' -Process 'app'
+        $starPort = New-NetLogRecord -Direction 'Outgoing' -Source '10.0.0.1' -SourceHost 'ME' -SourcePort '1' -Target '10.2.2.2' -TargetHost 'x' -TargetPort '*' -Process 'app'
+        Test-NetLogExcluded -Record $noPort   -Rules @(Rule 'process' 'app' 'both' '1-65535') | Should -BeFalse
+        Test-NetLogExcluded -Record $starPort -Rules @(Rule 'process' 'app' 'both' '1-65535') | Should -BeFalse
+        Test-NetLogExcluded -Record $noPort   -Rules @(Rule 'process' 'app')                  | Should -BeTrue   # no port on the rule: still matches
+    }
+    It 'process: matches the decorated name, the base name, wildcards, case-insensitively' {
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'process' 'svchost')                    | Should -BeTrue   # base name
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'process' 'SVCHOST (dnscache,nlasvc)') | Should -BeTrue   # decorated, case
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'process' 'svchost (Dnscache)')        | Should -BeFalse  # other decoration
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'process' 'svc*')                      | Should -BeTrue
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'process' 'svc')                       | Should -BeFalse  # anchored
+        Test-NetLogExcluded -Record $inRec  -Rules @(Rule 'process' 'svchost')                   | Should -BeTrue   # undecorated row
+    }
+    It 'user: matches any entry of the semicolon list' {
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'user' 'nt authority\system') | Should -BeTrue
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'user' 'CORP\al*')            | Should -BeTrue
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'user' 'CORP\bob')            | Should -BeFalse
+        Test-NetLogExcluded -Record $inRec  -Rules @(Rule 'user' '*')                   | Should -BeFalse  # blank cell never matches
+    }
+    It 'host: peer is target for Outgoing and source for Incoming; name, IP text, or CIDR' {
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'host' 'nas01*')        | Should -BeTrue
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'host' 'nas01')         | Should -BeFalse  # anchored: no FQDN match
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'host' '10.20.5.7')     | Should -BeTrue
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'host' '10.20.0.0/16')  | Should -BeTrue
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'host' 'ME')            | Should -BeFalse  # never the local side
+        Test-NetLogExcluded -Record $inRec  -Rules @(Rule 'host' 'scanner')       | Should -BeTrue
+        Test-NetLogExcluded -Record $inRec  -Rules @(Rule 'host' '10.9.0.0/16')   | Should -BeTrue
+        Test-NetLogExcluded -Record $inRec  -Rules @(Rule 'host' 'ME')            | Should -BeFalse
+    }
+    It 'host: a blank hostname still matches by IP / CIDR, including IPv6 with a zone id' {
+        Test-NetLogExcluded -Record $blankHost -Rules @(Rule 'host' 'fe80::/10') | Should -BeTrue
+        Test-NetLogExcluded -Record $blankHost -Rules @(Rule 'host' '')          | Should -BeFalse  # empty pattern never matches
+    }
+    It 'direction gates the rule' {
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'host' '*' 'in')  | Should -BeFalse
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'host' '*' 'out') | Should -BeTrue
+        Test-NetLogExcluded -Record $inRec  -Rules @(Rule 'host' '*' 'in')  | Should -BeTrue
+    }
+    It 'any rule hitting excludes (OR), unknown kinds are ignored, odd patterns never throw' {
+        Test-NetLogExcluded -Record $outRec -Rules @((Rule 'user' 'nobody'), (Rule 'host' 'nas01*')) | Should -BeTrue
+        Test-NetLogExcluded -Record $outRec -Rules @(Rule 'port' '445')          | Should -BeFalse
+        { Test-NetLogExcluded -Record $outRec -Rules @(Rule 'process' 'app[1]') } | Should -Not -Throw
+    }
+}
+
+Describe 'Select-NetLogIncluded' {
+    It 'drops excluded records and always returns an array' {
+        $a = New-NetLogRecord -Direction 'Outgoing' -Source 'h' -SourcePort '1' -Target 'r' -TargetPort '443' -Process 'keep'
+        $b = New-NetLogRecord -Direction 'Outgoing' -Source 'h' -SourcePort '2' -Target 'r' -TargetPort '443' -Process 'drop'
+        $rules = @([pscustomobject]@{ Kind = 'process'; Pattern = 'drop'; Direction = 'both' })
+        $kept = Select-NetLogIncluded -Records @($a, $b) -Rules $rules
+        ($kept -is [array]) | Should -BeTrue
+        $kept.Count         | Should -Be 1
+        $kept[0].Process    | Should -Be 'keep'
+        $none = Select-NetLogIncluded -Records @($b) -Rules $rules
+        ($none -is [array]) | Should -BeTrue
+        $none.Count         | Should -Be 0
+        $all = Select-NetLogIncluded -Records @($a, $b) -Rules @()
+        ($all -is [array])  | Should -BeTrue
+        $all.Count          | Should -Be 2
+        $noneNoRules = Select-NetLogIncluded -Records @() -Rules @()
+        ($noneNoRules -is [array]) | Should -BeTrue
+    }
+    It 'the zero-kept result binds to a Mandatory AllowEmptyCollection object[] parameter' {
+        function script:Sink { param([Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Records) $Records.Count }
+        $b = New-NetLogRecord -Direction 'Outgoing' -Source 'h' -SourcePort '2' -Target 'r' -TargetPort '443' -Process 'drop'
+        $rules = @([pscustomobject]@{ Kind = 'process'; Pattern = 'drop'; Direction = 'both' })
+        $none = Select-NetLogIncluded -Records @($b) -Rules $rules
+        { Sink -Records $none } | Should -Not -Throw
+        Sink -Records $none | Should -Be 0
+    }
+}
+
+Describe 'Get-NetLogExclusionError' {
+    It 'returns empty for a valid rule and a reason otherwise' {
+        function MkRule($k, $p, $d = 'both', $port = '') { [pscustomobject]@{ Kind = $k; Pattern = $p; Direction = $d; Port = $port } }
+        Get-NetLogExclusionError -Rule (MkRule 'host' '10.0.0.0/8')      | Should -Be ''
+        Get-NetLogExclusionError -Rule (MkRule 'host' 'x' 'out' '80,443,1024-2048') | Should -Be ''
+        Get-NetLogExclusionError -Rule (MkRule 'host' 'x' 'out' '99999')  | Should -Match 'port'
+        Get-NetLogExclusionError -Rule (MkRule 'host' 'x' 'out' '80,')    | Should -Match 'port'
+        Get-NetLogExclusionError -Rule (MkRule 'host' 'x' 'out' '443-80') | Should -Match 'port'
+        Get-NetLogExclusionError -Rule (MkRule 'host' 'x' 'out' '0')      | Should -Match 'port'
+        Get-NetLogExclusionError -Rule (MkRule 'host' 'x' 'out' '+80')    | Should -Match 'port'   # same strictness as the C# validator
+        Get-NetLogExclusionError -Rule (MkRule 'host' 'x' 'out' '80-+90') | Should -Match 'port'
+        Get-NetLogExclusionError -Rule ([pscustomobject]@{ Kind = 'host'; Pattern = 'x'; Direction = 'out' }) | Should -Be ''   # no Port member at all
+        Get-NetLogExclusionError -Rule (MkRule 'process' 'x' 'in')       | Should -Be ''
+        Get-NetLogExclusionError -Rule (MkRule 'port' '443')             | Should -Match 'kind'
+        Get-NetLogExclusionError -Rule (MkRule 'host' '')                | Should -Match 'pattern'
+        Get-NetLogExclusionError -Rule (MkRule 'host' '10.0.0.0/33')     | Should -Match 'CIDR'
+        Get-NetLogExclusionError -Rule (MkRule 'host' 'x' 'sideways')    | Should -Match 'direction'
+        Get-NetLogExclusionError -Rule (MkRule 'process' 'a[1]')         | Should -Match '\['
+    }
+}
+
+Describe 'ConvertTo-NetLogExclusionKey (live change detection)' {
+    It 'changes when only a port changes, so a live port edit is picked up' {
+        $m = Get-Module NetLogCollector
+        $a = & $m { param($r) ConvertTo-NetLogExclusionKey -Rules $r } @([pscustomobject]@{ Kind='host'; Pattern='x'; Direction='out'; Port='445' })
+        $b = & $m { param($r) ConvertTo-NetLogExclusionKey -Rules $r } @([pscustomobject]@{ Kind='host'; Pattern='x'; Direction='out'; Port='446' })
+        $c = & $m { param($r) ConvertTo-NetLogExclusionKey -Rules $r } @([pscustomobject]@{ Kind='host'; Pattern='x'; Direction='out' })
+        $a | Should -Not -Be $b
+        $a | Should -Not -Be $c
+    }
+}
+
+Describe 'Status heartbeat (excludedCount)' {
+    It 'writes excludedCount (default 0)' {
+        $now = [datetime]::Parse('2026-06-04T01:02:03.0000000Z', $null, [System.Globalization.DateTimeStyles]::RoundtripKind)
+        (New-NetLogStatus -LastRunUtc $now -ProcessId 1 -TotalConnections 1 -TotalPolls 1).excludedCount                    | Should -Be 0
+        (New-NetLogStatus -LastRunUtc $now -ProcessId 1 -TotalConnections 1 -TotalPolls 1 -ExcludedCount 42).excludedCount  | Should -Be 42
+    }
+}
+
+Describe 'Invoke-NetLogArchiveCycle (exclusion purge)' {
+    It 'removes already-archived rows that match a rule from both archive files and reports the count' {
+        $now = [datetime]::Parse('2026-06-04T00:00:00.0000000Z', $null, [System.Globalization.DateTimeStyles]::RoundtripKind)
+        $keep = New-NetLogRecord -Direction 'Outgoing' -Source 'H' -SourcePort '51001' -Target '10.1.1.1' -TargetPort '443' -Process 'app'
+        $drop = New-NetLogRecord -Direction 'Outgoing' -Source 'H' -SourcePort '51002' -Target '10.2.2.2' -TargetHost 'nas01' -TargetPort '445' -Process 'System'
+        foreach ($r in $keep, $drop) { Add-Member -InputObject $r -NotePropertyName LastSeen -NotePropertyValue $now.ToString('o') -Force }
+        $cachePath   = Join-Path $TestDrive 'purge\cache.csv'
+        $archivePath = Join-Path $TestDrive 'purge\hosts\S\connections.csv'
+        $runPath     = Join-Path $TestDrive 'purge\hosts\S\run1.csv'
+        $statusPath  = Join-Path $TestDrive 'purge\hosts\S\_status.json'
+        Export-NetLogCache -Records @($keep, $drop) -Path $cachePath
+
+        # Cycle 1: no rules - both rows land on the share.
+        Invoke-NetLogArchiveCycle -CachePath $cachePath -ArchivePath $archivePath -RunArchivePath $runPath -StatusPath $statusPath `
+                                  -Level 'Full' -ProcessId 1 -TotalPolls 1 -NowUtc $now | Out-Null
+        (Import-NetLogArchive -Path $archivePath).Count | Should -Be 2
+        (Import-NetLogArchive -Path $runPath).Count     | Should -Be 2
+
+        # Cycle 2: a host rule appears - the matching row is purged from both files.
+        $rules = @([pscustomobject]@{ Kind = 'host'; Pattern = 'nas01'; Direction = 'out' })
+        $res = Invoke-NetLogArchiveCycle -CachePath $cachePath -ArchivePath $archivePath -RunArchivePath $runPath -StatusPath $statusPath `
+                                         -Level 'Full' -ProcessId 1 -TotalPolls 2 -NowUtc $now -Exclusions $rules -ExcludedCount 7
+        @($res).Count | Should -Be 1
+        $res[0].Process | Should -Be 'app'
+        (Import-NetLogArchive -Path $archivePath).Count | Should -Be 1
+        (Import-NetLogArchive -Path $runPath).Count     | Should -Be 1
+        $st = Get-Content -LiteralPath $statusPath -Raw | ConvertFrom-Json
+        $st.excludedCount    | Should -Be 7
+        $st.totalConnections | Should -Be 1
+    }
+
+    It 'purges matching rows from both archive files at the Merged level too' {
+        $now = [datetime]::Parse('2026-06-04T00:00:00.0000000Z', $null, [System.Globalization.DateTimeStyles]::RoundtripKind)
+        $keep = New-NetLogRecord -Direction 'Outgoing' -Source 'H' -SourcePort '51001' -Target '10.1.1.1' -TargetPort '443' -Process 'app'
+        $drop = New-NetLogRecord -Direction 'Outgoing' -Source 'H' -SourcePort '51002' -Target '10.2.2.2' -TargetHost 'nas01' -TargetPort '445' -Process 'System'
+        foreach ($r in $keep, $drop) { Add-Member -InputObject $r -NotePropertyName LastSeen -NotePropertyValue $now.ToString('o') -Force }
+        $cachePath   = Join-Path $TestDrive 'mpurge\cache.csv'
+        $archivePath = Join-Path $TestDrive 'mpurge\hosts\S\connections.csv'
+        $runPath     = Join-Path $TestDrive 'mpurge\hosts\S\run1.csv'
+        $statusPath  = Join-Path $TestDrive 'mpurge\hosts\S\_status.json'
+        Export-NetLogCache -Records @($keep, $drop) -Path $cachePath
+
+        Invoke-NetLogArchiveCycle -CachePath $cachePath -ArchivePath $archivePath -RunArchivePath $runPath -StatusPath $statusPath `
+                                  -Level 'Merged' -ProcessId 1 -TotalPolls 1 -NowUtc $now | Out-Null
+        (Import-NetLogArchive -Path $archivePath).Count | Should -Be 2
+        (Import-NetLogArchive -Path $runPath).Count     | Should -Be 2
+
+        $rules = @([pscustomobject]@{ Kind = 'host'; Pattern = 'nas01'; Direction = 'out' })
+        $res = Invoke-NetLogArchiveCycle -CachePath $cachePath -ArchivePath $archivePath -RunArchivePath $runPath -StatusPath $statusPath `
+                                         -Level 'Merged' -ProcessId 1 -TotalPolls 2 -NowUtc $now -Exclusions $rules
+        @($res).Count   | Should -Be 1
+        $res[0].Process | Should -Be 'app'
+        $arch = Import-NetLogArchive -Path $archivePath
+        $runr = Import-NetLogArchive -Path $runPath
+        @($arch).Count | Should -Be 1
+        @($runr).Count | Should -Be 1
+        @($arch | Where-Object { $_.Process -eq 'System' }).Count | Should -Be 0
+        @($runr | Where-Object { $_.Process -eq 'System' }).Count | Should -Be 0
+    }
+}
+
+Describe 'Start-NetLogCollector (exclusions)' {
+    BeforeAll {
+        $script:xClock = [datetime]::Parse('2026-06-04T00:00:00.0000000Z', $null, [System.Globalization.DateTimeStyles]::RoundtripKind)
+        $script:xConns = @(
+            [pscustomobject]@{ State='Established'; LocalAddress='10.0.0.1'; LocalPort=51001; RemoteAddress='10.0.0.5';  RemotePort=443; OwningProcess=1234 }
+            [pscustomobject]@{ State='Established'; LocalAddress='10.0.0.1'; LocalPort=51002; RemoteAddress='10.20.5.7'; RemotePort=445; OwningProcess=4 }
+        )
+        $script:xMap = @{ 4 = 'System'; 1234 = 'chrome' }
+        function script:XJson([string]$exclusions) {
+            '{ "runName":"x","schedule":{"startUtc":"2026-06-01T00:00:00Z","stopUtc":"2999-01-01T00:00:00Z"},' +
+            '"settings":{"archiveLevel":"Full","pollIntervalSeconds":0,"archiveIntervalMinutes":0,"cacheLifetimeDays":7,"maxCacheSizeMb":null,"resolveHostnames":false' +
+            $(if ($exclusions) { ',"exclusions":' + $exclusions } else { '' }) + '} }'
+        }
+    }
+
+    It 'drops matching samples before the cache and reports excludedCount in the heartbeat' {
+        $run = Join-Path $TestDrive 'xrun1'; New-Item -ItemType Directory -Path $run -Force | Out-Null
+        Set-Content -Path (Join-Path $run 'run.json') -Encoding UTF8 -Value (XJson '[{"kind":"host","pattern":"10.20.0.0/16","direction":"out"}]')
+        $log = Join-Path $TestDrive 'xrun1-local\collector.log'
+        Start-NetLogCollector -RunPath $run -HostName 'S' -CachePath (Join-Path $TestDrive 'xrun1-local\cache.csv') `
+            -ConnectionProvider { $xConns } -ProcessMapProvider { $xMap } -Clock { $xClock } -MaxIterations 2 -LogPath $log
+        $rows = Import-NetLogArchive -Path (Join-Path $run 'hosts\S\connections.csv')
+        @($rows).Count    | Should -Be 1
+        $rows[0].Process  | Should -Be 'chrome'
+        $st = Get-Content -LiteralPath (Join-Path $run 'hosts\S\_status.json') -Raw | ConvertFrom-Json
+        $st.excludedCount | Should -Be 2       # one dropped sample per iteration
+        (Get-Content $log -Raw) | Should -Match 'exclusions: 1 rules'
+        (Get-Content $log -Raw) | Should -Match 'excluded=2'
+    }
+
+    It 'applies every rule when more than one is configured (regression: nested rule array)' {
+        # Bug: @(Select-NetLogValidExclusion ...) nested the rule array; with one rule member
+        # enumeration still stringified to the right values, with two or more nothing matched.
+        $run = Join-Path $TestDrive 'xrun1b'; New-Item -ItemType Directory -Path $run -Force | Out-Null
+        Set-Content -Path (Join-Path $run 'run.json') -Encoding UTF8 -Value (XJson '[{"kind":"process","pattern":"chrome","direction":"out"},{"kind":"process","pattern":"System","direction":"both"}]')
+        $log = Join-Path $TestDrive 'xrun1b-local\collector.log'
+        Start-NetLogCollector -RunPath $run -HostName 'S' -CachePath (Join-Path $TestDrive 'xrun1b-local\cache.csv') `
+            -ConnectionProvider { $xConns } -ProcessMapProvider { $xMap } -Clock { $xClock } -MaxIterations 2 -LogPath $log
+        $rows = Import-NetLogArchive -Path (Join-Path $run 'hosts\S\connections.csv')
+        @($rows).Count | Should -Be 0
+        $st = Get-Content -LiteralPath (Join-Path $run 'hosts\S\_status.json') -Raw | ConvertFrom-Json
+        $st.excludedCount | Should -Be 4       # two dropped samples per iteration
+        (Get-Content $log -Raw) | Should -Match 'exclusions: 2 rules'
+    }
+
+    It 'a port-qualified rule drops only connections on that service port' {
+        $run = Join-Path $TestDrive 'xrun1c'; New-Item -ItemType Directory -Path $run -Force | Out-Null
+        # System on 445 is dropped; chrome on 443 survives because its rule names port 444.
+        Set-Content -Path (Join-Path $run 'run.json') -Encoding UTF8 -Value (XJson '[{"kind":"process","pattern":"System","direction":"out","port":"139,445"},{"kind":"process","pattern":"chrome","port":"444"}]')
+        $log = Join-Path $TestDrive 'xrun1c-local\collector.log'
+        Start-NetLogCollector -RunPath $run -HostName 'S' -CachePath (Join-Path $TestDrive 'xrun1c-local\cache.csv') `
+            -ConnectionProvider { $xConns } -ProcessMapProvider { $xMap } -Clock { $xClock } -MaxIterations 2 -LogPath $log
+        $rows = Import-NetLogArchive -Path (Join-Path $run 'hosts\S\connections.csv')
+        @($rows).Count   | Should -Be 1
+        $rows[0].Process | Should -Be 'chrome'
+        $st = Get-Content -LiteralPath (Join-Path $run 'hosts\S\_status.json') -Raw | ConvertFrom-Json
+        $st.excludedCount | Should -Be 2
+    }
+
+    It 'a rule added mid-run purges the archive and the local cache on the next cycle' {
+        $run = Join-Path $TestDrive 'xrun2'; New-Item -ItemType Directory -Path $run -Force | Out-Null
+        $jsonPath = Join-Path $run 'run.json'
+        Set-Content -Path $jsonPath -Encoding UTF8 -Value (XJson '')
+        $cachePath = Join-Path $TestDrive 'xrun2-local\cache.csv'
+        $script:n = 0
+        # Iteration 1 samples normally; iteration 2 adds a process rule before the live re-read of iteration 3.
+        $provider = { $script:n++; if ($script:n -eq 2) { Set-Content -Path $jsonPath -Encoding UTF8 -Value (XJson '[{"kind":"process","pattern":"System"}]') }; $xConns }
+        Start-NetLogCollector -RunPath $run -HostName 'S' -CachePath $cachePath `
+            -ConnectionProvider $provider -ProcessMapProvider { $xMap } -Clock { $xClock } -MaxIterations 3
+        $rows = Import-NetLogArchive -Path (Join-Path $run 'hosts\S\connections.csv')
+        @($rows).Count   | Should -Be 1
+        $rows[0].Process | Should -Be 'chrome'
+        # Import-NetLogCache returns a comma-wrapped array: assign first, then enumerate (piping the
+        # call directly would hand Where-Object the whole array as one object and pass vacuously).
+        $cacheRows = Import-NetLogCache -Path $cachePath
+        @($cacheRows).Count | Should -Be 1
+        @($cacheRows | Where-Object { $_.Process -eq 'System' }).Count | Should -Be 0
+    }
+
+    It 'removing a rule lets a previously purged connection be recorded again (seen-set forgets purged keys)' {
+        $run = Join-Path $TestDrive 'xrun3'; New-Item -ItemType Directory -Path $run -Force | Out-Null
+        $jsonPath = Join-Path $run 'run.json'
+        Set-Content -Path $jsonPath -Encoding UTF8 -Value (XJson '')
+        $script:n = 0
+        # it 1: both rows recorded. it 2: rule appears -> System purged from cache/archive AND its key leaves $seen.
+        # it 3: rule removed again (takes effect at it 4's re-read). it 4: System must be recorded once more.
+        $provider = {
+            $script:n++
+            if ($script:n -eq 1) { Set-Content -Path $jsonPath -Encoding UTF8 -Value (XJson '[{"kind":"process","pattern":"System"}]') }
+            if ($script:n -eq 3) { Set-Content -Path $jsonPath -Encoding UTF8 -Value (XJson '') }
+            $xConns
+        }
+        Start-NetLogCollector -RunPath $run -HostName 'S' -CachePath (Join-Path $TestDrive 'xrun3-local\cache.csv') `
+            -ConnectionProvider $provider -ProcessMapProvider { $xMap } -Clock { $xClock } -MaxIterations 4
+        # Assign first: @(Import-NetLogArchive ...) would wrap the comma-returned array and count 1.
+        $rows = Import-NetLogArchive -Path (Join-Path $run 'hosts\S\connections.csv')
+        @($rows).Count | Should -Be 2
+    }
+
+    It 'a connection that expired from the cache before its rule was added is recorded again after the rule is removed' {
+        $run = Join-Path $TestDrive 'xrun5'; New-Item -ItemType Directory -Path $run -Force | Out-Null
+        $jsonPath = Join-Path $run 'run.json'
+        $life1 = { param($excl) (XJson $excl) -replace '"cacheLifetimeDays":7', '"cacheLifetimeDays":1' }
+        Set-Content -Path $jsonPath -Encoding UTF8 -Value (& $life1 '')
+        $script:n = 0
+        $script:x5Clock = $xClock
+        # The clock is read at the top of each iteration; the provider advances it by 2 days at the end
+        # of its call, so iteration i runs at T0 + 2(i-1) days. Lifetime is 1 day; archive every iteration.
+        # it 1 (T0):    no rules. Both rows sampled -> cache {chrome,System}, seen {chrome,System}, archive 2.
+        #               (provider returns both)
+        # it 2 (T0+2d): no rules. Provider returns chrome only (System idle) and writes the System rule.
+        #               Expiry: System LastSeen T0 < cutoff T0+1d -> dropped from the cache, but its key
+        #               stays in seen. Archive still 2 (cumulative).
+        # it 3 (T0+4d): re-read picks up the rule. Provider returns both -> System dropped (excluded=1)
+        #               and writes the empty rule set. Cache purge: System not in the cache, so the
+        #               helper cannot remove its key from seen. Archive purge: System row deleted -> 1.
+        # it 4 (T0+6d): re-read: rules removed. Without the seen-set rebuild, System's key is still in
+        #               seen and absent from the cache, so Update-NetLogCache silently drops it -> archive 1.
+        #               With the rebuild (seen = keys of cache = {chrome}), System is recorded -> archive 2.
+        $provider = {
+            $script:n++
+            $out = $xConns
+            if ($script:n -eq 2) {
+                Set-Content -Path $jsonPath -Encoding UTF8 -Value (& $life1 '[{"kind":"process","pattern":"System"}]')
+                $out = @($xConns | Where-Object { $_.OwningProcess -ne 4 })
+            }
+            if ($script:n -eq 3) { Set-Content -Path $jsonPath -Encoding UTF8 -Value (& $life1 '') }
+            $script:x5Clock = $script:x5Clock.AddDays(2)
+            $out
+        }
+        Start-NetLogCollector -RunPath $run -HostName 'S' -CachePath (Join-Path $TestDrive 'xrun5-local\cache.csv') `
+            -ConnectionProvider $provider -ProcessMapProvider { $xMap } -Clock { $script:x5Clock } -MaxIterations 4
+        $rows = Import-NetLogArchive -Path (Join-Path $run 'hosts\S\connections.csv')
+        @($rows).Count | Should -Be 2
+        @($rows | Where-Object { $_.Process -eq 'System' }).Count | Should -Be 1
+        $st = Get-Content -LiteralPath (Join-Path $run 'hosts\S\_status.json') -Raw | ConvertFrom-Json
+        $st.excludedCount | Should -BeGreaterThan 0
+    }
+
+    It 'skips a malformed rule with one warning and keeps collecting with the valid ones' {
+        $run = Join-Path $TestDrive 'xrun4'; New-Item -ItemType Directory -Path $run -Force | Out-Null
+        Set-Content -Path (Join-Path $run 'run.json') -Encoding UTF8 -Value (XJson '[{"kind":"host","pattern":"10.0.0.0/99"},{"kind":"process","pattern":"chrome"}]')
+        $log = Join-Path $TestDrive 'xrun4-local\collector.log'
+        Start-NetLogCollector -RunPath $run -HostName 'S' -CachePath (Join-Path $TestDrive 'xrun4-local\cache.csv') `
+            -ConnectionProvider { $xConns } -ProcessMapProvider { $xMap } -Clock { $xClock } -MaxIterations 3 -LogPath $log
+        $rows = Import-NetLogArchive -Path (Join-Path $run 'hosts\S\connections.csv')
+        @($rows).Count   | Should -Be 1
+        $rows[0].Process | Should -Be 'System'
+        $text = Get-Content $log -Raw
+        ([regex]::Matches($text, 'WARN exclusion rule skipped')).Count | Should -Be 1   # once, not once per cycle
+        $text | Should -Match 'exclusions: 1 rules'
+    }
+}

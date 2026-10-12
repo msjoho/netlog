@@ -142,4 +142,49 @@ public class DashboardViewTests
         var o = Render(cursor: 0, focus: null);
         Assert.DoesNotContain("TOP USERS", o);
     }
+
+    private static RunStatusReport ReportWith(int rules, int? total, int? h0, int? h1)
+    {
+        var s = Stats(0, 0, 0, Array.Empty<(string, int)>(), Array.Empty<(string, int)>());
+        var hosts = new[]
+        {
+            new HostSummary("A", Now, 0, 1, s, HostLiveness.Live, h0),
+            new HostSummary("B", Now, 0, 1, s, HostLiveness.Live, h1),
+        };
+        return new RunStatusReport("r", RunState.Running, Start, Stop, TimeSpan.Zero, Now, hosts, s, "Merged", rules, total);
+    }
+
+    private static string RenderReport(RunStatusReport r)
+    {
+        var console = new TestConsole();
+        console.Write(DashboardView.Render(new DashboardViewState(r, 0, null, Now, null, null), TimeZoneInfo.Utc));
+        return console.Output;
+    }
+
+    [Fact]
+    public void Exclusions_row_shows_rules_and_dropped_total_and_hosts_show_their_counts()
+    {
+        var o = RenderReport(ReportWith(rules: 3, total: 1204, h0: 1200, h1: 4));
+        Assert.Contains("Exclusions", o);
+        Assert.Contains("3 rules", o);
+        Assert.Contains($"{1204:n0} dropped", o);
+        Assert.Contains("excl", o);
+        Assert.Contains(1200.ToString("n0"), o);
+    }
+
+    [Fact]
+    public void Missing_counts_render_as_na_never_zero()
+    {
+        var o = RenderReport(ReportWith(rules: 2, total: null, h0: null, h1: null));
+        Assert.Contains("n/a dropped", o);
+        Assert.DoesNotContain("0 dropped", o);
+        Assert.Equal(2, o.Split("n/a").Length - 1 - 1);   // two host rows show n/a (plus the summary's one)
+    }
+
+    [Fact]
+    public void Row_is_hidden_for_runs_without_rules_or_counts()
+    {
+        Assert.DoesNotContain("Exclusions", RenderReport(ReportWith(rules: 0, total: null, h0: null, h1: null)));
+        Assert.Contains("Exclusions", RenderReport(ReportWith(rules: 0, total: 5, h0: 5, h1: null)));   // collector reports, no rules
+    }
 }

@@ -9,7 +9,8 @@ public sealed record HostSummary(
     int ConnectionCount,
     int? TotalPolls,
     RunStats Stats,
-    HostLiveness Liveness);
+    HostLiveness Liveness,
+    int? ExcludedCount = null);
 
 public sealed record RunStatusReport(
     string RunName,
@@ -20,4 +21,6 @@ public sealed record RunStatusReport(
     DateTimeOffset? LastUpdateUtc,
     IReadOnlyList<HostSummary> Hosts,
     RunStats Stats,
-    string ArchiveLevel = "Merged");
+    string ArchiveLevel = "Merged",
+    int ExclusionRuleCount = 0,
+    int? ExcludedTotal = null);   // sum over hosts that report excludedCount; null when none do

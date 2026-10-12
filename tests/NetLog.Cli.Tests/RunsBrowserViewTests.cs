@@ -39,4 +39,11 @@ public class RunsBrowserViewTests
         var o = Render();
         Assert.Contains("No runs", o, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void Footer_offers_x_exclusions_with_and_without_runs()
+    {
+        Assert.Contains("exclusions", Render());
+        Assert.Contains("exclusions", Render(new RunListing("audit", Now.AddDays(-1), Now.AddDays(1), 2)));
+    }
 }

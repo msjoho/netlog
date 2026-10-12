@@ -1,4 +1,5 @@
 using NetLog.Core.Io;
+using NetLog.Core.Models;
 using NetLog.Core.RunSpec;
 
 namespace NetLog.Cli.Tui;
@@ -7,7 +8,8 @@ public sealed record WizardAnswers(
     string Path, string Targets, string Account,
     string Start, string? Stop, string? Duration,
     string ArchiveLevel, int PollSeconds, int ArchiveMinutes,
-    int? CacheDays, int? CacheMb, bool Timestamps = false);
+    int? CacheDays, int? CacheMb, bool Timestamps = false,
+    IReadOnlyList<ExclusionRule>? Exclusions = null);
 
 public static class RunWizard
 {
@@ -17,7 +19,7 @@ public static class RunWizard
         var config = RunConfigFactory.Create(
             a.Path, a.Targets, a.Account, a.Start, a.Stop, a.Duration,
             a.ArchiveLevel, a.PollSeconds, a.ArchiveMinutes, a.CacheDays, a.CacheMb, now,
-            timestamps: a.Timestamps);
+            timestamps: a.Timestamps, exclusions: a.Exclusions);
         RunConfigWriter.WriteFile(System.IO.Path.Combine(a.Path, "run.json"), config);
         return a.Path;
     }

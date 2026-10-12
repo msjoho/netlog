@@ -1,3 +1,4 @@
+using NetLog.Core.Models;
 using NetLog.Core.RunSpec;
 
 namespace NetLog.Core.Tests;
@@ -148,5 +149,19 @@ public class RunConfigFactoryTests
     {
         Assert.Throws<ArgumentException>(() =>
             RunConfigFactory.Create(path, "S1", "D\\s", "now", null, "7d", "Full", 10, 60, 7, null, Now));
+    }
+
+    [Fact]
+    public void Create_and_WithEdits_carry_exclusions()
+    {
+        var rules = new[] { new ExclusionRule("user", "CORP\\svc-*") };
+        var c = RunConfigFactory.Create(@"\\s\run", "H1", "svc", "now", null, "7d", "Merged", 10, 60, 7, null, Now, exclusions: rules);
+        Assert.Equal(rules, c.Settings.Exclusions);
+
+        var kept = RunConfigFactory.WithEdits(c, null, "8d", 10, 60, 7, null, Now);
+        Assert.Equal(rules, kept.Settings.Exclusions);                       // null = keep
+
+        var changed = RunConfigFactory.WithEdits(c, null, "8d", 10, 60, 7, null, Now, exclusions: Array.Empty<ExclusionRule>());
+        Assert.Empty(changed.Settings.Exclusions);                           // explicit list replaces
     }
 }

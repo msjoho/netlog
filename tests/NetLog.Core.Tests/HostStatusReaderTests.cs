@@ -46,4 +46,14 @@ public class HostStatusReaderTests
         Assert.Null(HostStatusReader.ReadFile(path));
         File.Delete(path);
     }
+
+    [Fact]
+    public void Excluded_count_is_null_when_absent_and_read_when_present()
+    {
+        var old = TempFile("""{ "lastRunUtc": "2026-06-05T06:20:04Z", "pid": 1, "totalConnections": 2, "totalPolls": 3 }""");
+        Assert.Null(HostStatusReader.ReadFile(old)!.ExcludedCount);
+        var @new = TempFile("""{ "lastRunUtc": "2026-06-05T06:20:04Z", "pid": 1, "totalConnections": 2, "totalPolls": 3, "excludedCount": 1204 }""");
+        Assert.Equal(1204, HostStatusReader.ReadFile(@new)!.ExcludedCount);
+        File.Delete(old); File.Delete(@new);
+    }
 }

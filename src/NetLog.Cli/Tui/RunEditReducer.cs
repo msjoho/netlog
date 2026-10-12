@@ -2,17 +2,17 @@ using NetLog.Core.Models;
 
 namespace NetLog.Cli.Tui;
 
-public enum RunEditField { End, Poll, ArchiveEvery, Cache }
-public enum RunEditCommand { None, Save, Cancel }
+public enum RunEditField { End, Poll, ArchiveEvery, Cache, Exclusions }
+public enum RunEditCommand { None, Save, Cancel, EditExclusions }
 
 /// <summary>The in-run edit form — only the values that can change during a run (the end, plus poll /
 /// archive-interval / cache-lifetime). All four fields are text-editable with a caret; the End field
 /// also flips between a duration and an explicit date. Immutable fields are shown by the view but not
 /// represented here.</summary>
 public sealed record RunEditForm(
-    int FieldIndex, bool EndDuration, string Duration, string EndDate, string Poll, string ArchiveEvery, string Cache, int Caret)
+    int FieldIndex, bool EndDuration, string Duration, string EndDate, string Poll, string ArchiveEvery, string Cache, int Caret, IReadOnlyList<ExclusionRule> Exclusions)
 {
-    public const int FieldCount = 4;
+    public const int FieldCount = 5;
     public RunEditField Field => (RunEditField)FieldIndex;
 
     public static RunEditForm From(RunConfig c)
@@ -23,7 +23,8 @@ public sealed record RunEditForm(
             Poll: c.Settings.PollIntervalSeconds.ToString(),
             ArchiveEvery: c.Settings.ArchiveIntervalMinutes.ToString(),
             Cache: c.Settings.CacheLifetimeDays?.ToString() ?? "",
-            Caret: endDate.Length);
+            Caret: endDate.Length,
+            Exclusions: c.Settings.Exclusions);
     }
 
     public string Active => Field switch
@@ -32,6 +33,7 @@ public sealed record RunEditForm(
         RunEditField.Poll => Poll,
         RunEditField.ArchiveEvery => ArchiveEvery,
         RunEditField.Cache => Cache,
+        RunEditField.Exclusions => "",
         _ => "",
     };
 
@@ -57,7 +59,9 @@ public static class RunEditReducer
             case KeyKind.Right: return (f with { Caret = Math.Min(f.Active.Length, f.Caret + 1) }, RunEditCommand.None);
             case KeyKind.Enter: return (f, RunEditCommand.Save);
             case KeyKind.Esc:   return (f, RunEditCommand.Cancel);
-            case KeyKind.Tab:   return (f.Field == RunEditField.End ? AtEnd(f with { EndDuration = !f.EndDuration }) : f, RunEditCommand.None);
+            case KeyKind.Tab:
+                if (f.Field == RunEditField.Exclusions) return (f, RunEditCommand.EditExclusions);
+                return (f.Field == RunEditField.End ? AtEnd(f with { EndDuration = !f.EndDuration }) : f, RunEditCommand.None);
             case KeyKind.Char:      return (Insert(f, k.Char), RunEditCommand.None);
             case KeyKind.Backspace: return (DeleteBack(f), RunEditCommand.None);
             case KeyKind.Delete:    return (DeleteAt(f), RunEditCommand.None);
@@ -78,6 +82,7 @@ public static class RunEditReducer
 
     private static RunEditForm Insert(RunEditForm f, char c)
     {
+        if (f.Field == RunEditField.Exclusions) return f;   // not text-editable; tab opens the list editor
         var s = f.Active;
         var caret = Math.Clamp(f.Caret, 0, s.Length);
         return f.WithActive(s[..caret] + c + s[caret..]) with { Caret = caret + 1 };

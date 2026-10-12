@@ -2,6 +2,7 @@ using NetLog.Cli.Commands;
 using NetLog.Cli.Deploy;
 using NetLog.Cli.Rendering;
 using NetLog.Core.Io;
+using NetLog.Core.Models;
 using NetLog.Core.RunSpec;
 using Spectre.Console;
 
@@ -56,7 +57,7 @@ public sealed class RunActions
         var config = RunConfigReader.ReadFile(runJson);
 
         if (RunEditScreen.Run(_console, _keys, path, config, _now))
-            Info($"[{Theme.Green}]Run updated.[/] Edits apply within one archive cycle on running collectors.");
+            Info($"[{Theme.Green}]Run updated.[/] Edits apply within one poll (exclusions) / one archive cycle on running collectors.");
     }
 
     public void Merge(string path)
@@ -139,6 +140,31 @@ public sealed class RunActions
 
         if (ConfirmScreen.Run(_console, _keys, "Deploy and start this window now?"))
             Deploy(path);
+    }
+
+    /// <summary>Edit the root's exclusions.json template. Changes affect runs created afterwards only.</summary>
+    public void EditRootExclusions(string root)
+    {
+        IReadOnlyList<ExclusionRule> current;
+        try { current = ExclusionsStore.Load(root); }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            Info($"[red]Cannot read {Markup.Escape(ExclusionsStore.FileName)}:[/] {Markup.Escape(ex.Message)}\n[grey]Fix the file by hand, then try again.[/]");
+            return;
+        }
+
+        var edited = ExclusionsScreen.Run(_console, _keys, current, "exclusions · root", root);
+        if (edited is null) return;
+
+        try
+        {
+            ExclusionsStore.Save(root, edited);
+            Info($"[{Theme.Green}]Root exclusions saved.[/] Runs created under this root from now on start with these {edited.Count} rule(s); existing runs are unchanged.");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Info($"[red]Could not write {Markup.Escape(ExclusionsStore.FileName)}:[/] {Markup.Escape(ex.Message)}");
+        }
     }
 
     private void ShowResults(IReadOnlyList<DeployResult> results, string title)

@@ -79,6 +79,13 @@ public class BrowserReducerTests
         Assert.Equal(BrowserCommand.OpenRun, BrowserReducer.Reduce(0, 3, KeyPress.Enter).Cmd);
         Assert.Equal(BrowserCommand.None, BrowserReducer.Reduce(0, 0, KeyPress.Enter).Cmd);
     }
+
+    [Fact]
+    public void Browser_x_requests_the_root_exclusions_editor()
+    {
+        Assert.Equal(BrowserCommand.Exclusions, BrowserReducer.Reduce(0, 0, KeyPress.Of('x')).Cmd);
+        Assert.Equal(BrowserCommand.Exclusions, BrowserReducer.Reduce(1, 3, KeyPress.Of('x')).Cmd);
+    }
 }
 
 public class RootReducerTests

@@ -17,6 +17,7 @@ One row per unique connection, fourteen fields:
 - **Persistence counters:** `SeenCount` (poll-sample count; at Merged: max of contributing connections) and `Connections` (distinct initiator source ports; Merged level only) use idempotent max-merges, never accumulated.
 - **Timestamps:** `FirstSeen`/`LastSeen` are recorded only when the run is created with `--timestamps` (off by default) or with the wizard's **Timestamps** field switched on.
 - **Top users:** when `Usernames` data is present, the dashboard/`netlog status` frame adds a TOP USERS panel alongside TOP TARGETS/PROCESSES.
+- **Exclusions:** rules on the process name, the owning username, or the remote peer's host (target for outgoing, source for incoming) drop matching connections on the collector — they never reach the cache, the share, or the dashboard. See *Exclusions* below.
 - Old 6- and 8-column runs are upgraded on read (Incoming rows swap ends; hostnames blank; identity/timestamp fields absent).
 
 ## Architecture (built in four phases)
@@ -42,7 +43,7 @@ netlog status --path \\share\runs\audit      # dashboard: state, duration, stats
 netlog stop   --path \\share\runs\audit      # stop + unregister the task on each target
 ```
 
-`netlog new` options: `--start now|<iso>`, `--stop <iso>` or `--duration 7d/12h/90m`, `--archive-level Full|Merged`, `--poll <s>`, `--archive-interval <m>`, `--cache-days <d>` or `--cache-mb <mb>`, `--no-resolve-hostnames`, `--timestamps`.
+`netlog new` options: `--start now|<iso>`, `--stop <iso>` or `--duration 7d/12h/90m`, `--archive-level Full|Merged`, `--poll <s>`, `--archive-interval <m>`, `--cache-days <d>` or `--cache-mb <mb>`, `--no-resolve-hostnames`, `--timestamps`, `--exclude <rule>` (repeatable), `--no-root-exclusions`.
 
 **Credentials:** `netlog start` prompts for the service-account password (masked) and passes it to the deployment only via the child process environment — never on a command line. The Scheduled Task stores it in Windows' protected store on each host.
 
@@ -51,8 +52,8 @@ netlog stop   --path \\share\runs\audit      # stop + unregister the task on eac
 `netlog` (no args) opens a self-refreshing, single-screen terminal UI driven by single-key hotkeys:
 
 1. **Root select** — pick the folder that holds your runs (e.g. `\\tdfs\InfraOps\Sources\netlog`); recent roots are remembered. `r` adds a new one.
-2. **Runs browser** — every subfolder with a `run.json` is listed as a run (folder name = run name; full paths are never shown) with its window-derived state and host count. `enter` opens one, `c` creates a new one, `r` changes root.
-3. **Live dashboard** — re-reads the run folder every few seconds (state, elapsed, heartbeats, top-10 stats; each top target/process is tagged `in`/`out`/`io`). Arrow through hosts and press `enter` to **focus** one — the stats panels narrow to that host; `enter` on another host switches focus directly, `enter` on the focused host (or `a`/`Esc`) unfocuses. `s` deploy · `x` destroy · `n` new window · `e` edit · `r` refresh · `q` back. A share outage keeps the last good frame and flags it stale instead of crashing.
+2. **Runs browser** — every subfolder with a `run.json` is listed as a run (folder name = run name; full paths are never shown) with its window-derived state and host count. `enter` opens one, `c` creates a new one, `x` edits exclusions (the root template), `r` changes root.
+3. **Live dashboard** — re-reads the run folder every few seconds (state, elapsed, heartbeats, top-10 stats; each top target/process is tagged `in`/`out`/`io`; per-host `excl` column). Arrow through hosts and press `enter` to **focus** one — the stats panels narrow to that host; `enter` on another host switches focus directly, `enter` on the focused host (or `a`/`Esc`) unfocuses. `s` deploy · `x` destroy · `n` new window · `e` edit · `r` refresh · `q` back. A share outage keeps the last good frame and flags it stale instead of crashing.
 
 **Editing a running run** (`e`) — the end (duration/date), poll interval, archive interval and cache lifetime can be changed while a run is live; immutable fields (name, targets, account, archive level, start) are shown greyed. The collector re-reads `run.json` each cycle, so edits take effect within one archive cycle (collectors deployed before this change need one redeploy to pick up the re-read).
 
@@ -61,6 +62,27 @@ netlog stop   --path \\share\runs\audit      # stop + unregister the task on eac
 The whole flow stays in the themed TUI — the new-window schedule, the masked password, and confirmations are all in-app (no console prompts), and the screen patches in place without flicker. All timestamps render in local time with the offset shown.
 
 The new-run wizard takes a run *name* (the run is created under the selected root); fields edit with a movable caret (arrows/Backspace/Delete) and toggle **Start** (`now` ⇄ date), **End** (duration ⇄ date), and **Timestamps** (`off` ⇄ `on`) with `Tab`. Creating a run **deploys by default** (confirm; choose no to create it without deploying). `[s] deploy` registers the Scheduled Task (honouring the start time); `[x] destroy` removes the task on the targets while keeping `run.json` and the collected data on the share. The dashboard view is shared with `netlog status`, which prints the same frame once (non-interactively).
+
+## Exclusions
+
+Noise you never want logged — monitoring agents, backup/AV traffic, admin accounts, the collector's own SMB writes — is declared as **rules**:
+
+| Kind | Matches | Example |
+|---|---|---|
+| `process` | the process name, or the base name of a decorated `svchost (Service)` | `process:svchost (Dnscache)` · `process:Teams*` |
+| `user` | any of the owning usernames (`DOMAIN\name`) | `user:CORP\svc-scom*` |
+| `host` | the **remote peer**: hostname, IP, or CIDR | `host:nas01*` · `host:10.20.0.0/16@out` · `host:fe80::/10` · `host:go.microsoft.com@out:443` |
+
+Patterns are case-insensitive, anchored, with `*` and `?` wildcards (`nas01` does not match `nas01.corp.local`; `nas01*` does). A trailing `@in` / `@out` limits a rule to one direction. A **port** after the direction, `@out:445`, `@in:3389`, `@both:443` or just `@445` (either direction), limits a rule of any kind to the **service port**: the remote port of an outgoing connection, the local port of an incoming one. A port spec is a single port, a comma list or a low-high range: `443`, `80,443`, `1024-65535`. So `process:System@in:139,445` hides SMB server traffic without hiding everything the System process does. (A pattern that itself ends in `@digits`, say `user:svc@2024`, would read as a port; append `@both` to keep it literal.) A row is dropped when **any** rule matches.
+
+**Where rules live.** `<root>\exclusions.json` is the team's template (`{ "rules": [ { "kind": "host", "pattern": "nas01*", "direction": "out", "port": "445", "note": "backup" } ] }` — `port` and `note` are optional). Each new run **copies** it into `run.json` → `settings.exclusions`; that copy is the only list the collector reads, so a run documents exactly what it excluded and later template edits never touch it. Re-running `netlog new` (or *Start another run*) over an existing run folder takes a fresh snapshot of the root template; because `connections.csv` is cumulative across windows, rows from earlier windows that match the new rules are purged from it on the first archive cycle (each window's `run<N>.csv` is left as it was).
+
+- **TUI:** the new-run wizard shows `Exclusions   N rules (from root)` — `tab` opens the editor (`a` add a rule in the `kind:pattern[@in|@out][:port]` form, `d` remove, `enter` done, `esc` discard); changes there affect the new run only. `x` on the runs browser edits the root template. `e` on the dashboard → *Exclusions* → `tab` edits a **live** run.
+- **CLI:** `netlog new --exclude "process:Teams*" --exclude host:10.0.0.0/8@out --exclude process:System@in:445` (repeatable); the root template is inherited unless `--no-root-exclusions`.
+
+**Live edits purge.** The collector re-reads `run.json` every cycle: new samples are filtered within one poll, and because each archive cycle rewrites `connections.csv` / `run<N>.csv`, rows matching a newly added rule are **removed from the share** (and the local cache) within one archive cycle. The edit screen warns about this.
+
+**Seeing it work.** The dashboard / `netlog status` summary shows `Exclusions   3 rules · 1,204 dropped` and each host row an `excl` count (`n/a` for hosts whose collector predates this feature). `dropped` counts sample rows (one per poll per excluded connection) since the collector last started, so it grows with poll frequency and resets when a host reboots. The collector log prints `exclusions: N rules` at start (and whenever the list changes), `excluded=<n>` per archive cycle, and `WARN exclusion rule skipped` once per malformed rule — a bad rule never stops collection. A corrupt `exclusions.json` is shown as an error wherever it is loaded, never silently ignored.
 
 ## Install (use `netlog` anywhere)
 

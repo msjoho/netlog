@@ -1,7 +1,9 @@
+using NetLog.Core.Models;
+
 namespace NetLog.Cli.Tui;
 
-public enum WizardField { RunName, Targets, Account, Start, End, ArchiveLevel, Poll, ArchiveEvery, Cache, Timestamps }
-public enum WizardCommand { None, Create, Cancel }
+public enum WizardField { RunName, Targets, Account, Start, End, ArchiveLevel, Poll, ArchiveEvery, Cache, Timestamps, Exclusions }
+public enum WizardCommand { None, Create, Cancel, EditExclusions }
 
 /// <summary>The new-run wizard as one editable form. Pure state; the reducer drives every transition
 /// (field nav, caret text edit, Tab flips) so the behaviour is unit-testable without a terminal.
@@ -12,9 +14,10 @@ public sealed record WizardForm(
     bool StartNow, string StartDate,
     bool EndDuration, string Duration, string EndDate,
     string ArchiveLevel, string Poll, string ArchiveEvery, string Cache,
-    int Caret, bool Timestamps = false)
+    int Caret, bool Timestamps = false,
+    IReadOnlyList<ExclusionRule>? Exclusions = null, string? RootExclusionsError = null, bool ExclusionsEdited = false)
 {
-    public const int FieldCount = 10;
+    public const int FieldCount = 11;
 
     public static WizardForm Default() => new(
         FieldIndex: 0,
@@ -39,6 +42,7 @@ public sealed record WizardForm(
         WizardField.ArchiveEvery => ArchiveEvery,
         WizardField.Cache        => Cache,
         WizardField.Timestamps   => null,
+        WizardField.Exclusions   => null,
         _ => null,
     };
 
@@ -68,7 +72,9 @@ public static class WizardReducer
             case KeyKind.Right: return (f with { Caret = Math.Min((f.Active?.Length ?? 0), f.Caret + 1) }, WizardCommand.None);
             case KeyKind.Enter: return (f, WizardCommand.Create);
             case KeyKind.Esc:   return (f, WizardCommand.Cancel);
-            case KeyKind.Tab:   return (AtEnd(Flip(f, currentUser)), WizardCommand.None);
+            case KeyKind.Tab:
+                if (f.Field == WizardField.Exclusions) return (f, WizardCommand.EditExclusions);
+                return (AtEnd(Flip(f, currentUser)), WizardCommand.None);
             case KeyKind.Char:      return (Insert(f, k.Char), WizardCommand.None);
             case KeyKind.Backspace: return (DeleteBack(f), WizardCommand.None);
             case KeyKind.Delete:    return (DeleteAt(f), WizardCommand.None);
@@ -126,7 +132,8 @@ public static class WizardReducer
         ArchiveMinutes: ParseInt(f.ArchiveEvery, 60),
         CacheDays: ParseNullableInt(f.Cache),
         CacheMb: null,
-        Timestamps: f.Timestamps);
+        Timestamps: f.Timestamps,
+        Exclusions: f.Exclusions);
 
     private static int ParseInt(string s, int fallback) => int.TryParse(s, out var v) ? v : fallback;
     private static int? ParseNullableInt(string s) => int.TryParse(s, out var v) ? v : null;
