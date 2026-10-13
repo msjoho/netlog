@@ -20,10 +20,10 @@ public static class RunEditScreen
         {
             var pending = RunEditCommand.None;
             ScreenHost.Run(console,
-                () => Compose(RunEditView.Render(config, form, TimeZoneInfo.Local), error),
+                () => Compose(RunEditView.Render(config, form, TimeZoneInfo.Local, ScreenSize.Of(console)), error),
                 () =>
                 {
-                    if (keys.Read(0) is not { } key) return false;
+                    if (keys.Read(ScreenHost.PollMs) is not { } key) return false;
                     error = null;
                     var (next, cmd) = RunEditReducer.Reduce(form, key);
                     form = next;

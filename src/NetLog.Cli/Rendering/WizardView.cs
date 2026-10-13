@@ -9,12 +9,21 @@ namespace NetLog.Cli.Rendering;
 /// matches the focused field.</summary>
 public static class WizardView
 {
-    public static IRenderable Render(WizardForm f, string rootPath, string currentUser)
+    public static IRenderable Render(WizardForm f, string rootPath, string currentUser, ScreenSize size)
     {
+        var w = size.Width;
+        var left = $"[{Theme.Green}]► netlog[/]   [{Theme.Gray}]new run[/]";
+        var root = Ui.HeadTrim(rootPath, Math.Max(8, w - Markup.Remove(left).Length - 3));
+        var name = Display(f.RunName, "<name>");
+        var createsRoot = Ui.HeadTrim(rootPath, Math.Max(8, w - "Creates  ".Length - 1 - name.Length));
+        var hint = f.Field == WizardField.Exclusions && f.RootExclusionsError is not null
+            ? Ui.Wrap("i  " + f.RootExclusionsError, w).Select(l => new Markup($"[{Theme.Red}]{Markup.Escape(l)}[/]"))
+            : Ui.Wrap("i  " + Hint(f.Field), w).Select(l => new Markup($"[{Theme.Hint}]{Markup.Escape(l)}[/]"));
+
         var rows = new List<IRenderable>
         {
-            new Markup($"[{Theme.Green}]► netlog[/]   [{Theme.Gray}]new run[/]                            [{Theme.Gray}]{Markup.Escape(rootPath)}[/]"),
-            RuleLine(),
+            new Markup(Ui.Spread(left, $"[{Theme.Gray}]{Markup.Escape(root)}[/]", w)),
+            Ui.Rule(w),
             FieldRow(f, WizardField.RunName,      "Run name",        "", f.RunName,      ""),
             FieldRow(f, WizardField.Targets,      "Targets",         "", f.Targets,      ""),
             FieldRow(f, WizardField.Account,      "Service account", "", f.Account,      ""),
@@ -27,14 +36,12 @@ public static class WizardView
             FieldRow(f, WizardField.Cache,        "Cache lifetime",  "", f.Cache,        "d"),
             FieldRow(f, WizardField.Timestamps,   "Timestamps",      f.Timestamps ? "on" : "off", "", "", textEditable: false),
             ExclusionsRow(f),
-            RuleLine(),
-            new Markup($"[{Theme.Gray}]Creates  [/][{Theme.Dim}]{Markup.Escape(rootPath)}\\[/][{Theme.White}]{Markup.Escape(Display(f.RunName, "<name>"))}[/]"),
-            f.Field == WizardField.Exclusions && f.RootExclusionsError is not null
-                ? new Markup($"[{Theme.Red}]i  {Markup.Escape(f.RootExclusionsError)}[/]")
-                : new Markup($"[{Theme.Hint}]i  {Hint(f.Field)}[/]"),
-            RuleLine(),
-            new Markup(Footer(f, currentUser)),
+            Ui.Rule(w),
+            new Markup($"[{Theme.Gray}]Creates  [/][{Theme.Dim}]{Markup.Escape(createsRoot)}\\[/][{Theme.White}]{Markup.Escape(name)}[/]"),
         };
+        rows.AddRange(hint);
+        rows.Add(Ui.Rule(w));
+        rows.AddRange(Ui.FooterLines(Footer(f, currentUser), w).Select(l => new Markup(l)));
         return new Rows(rows);
     }
 
@@ -102,7 +109,7 @@ public static class WizardView
         _ => "",
     };
 
-    private static string Footer(WizardForm f, string currentUser)
+    private static IEnumerable<string> Footer(WizardForm f, string currentUser)
     {
         string k(string key, string label) =>
             $"[{Theme.Gray}]{Markup.Escape("[")}[/][{Theme.Green}]{key}[/][{Theme.Gray}]{Markup.Escape("]")} {label}[/]";
@@ -122,11 +129,9 @@ public static class WizardView
         if (tab is not null) parts.Add(k("tab", tab));
         parts.Add(k("enter", "create & deploy"));
         parts.Add(k("esc", "cancel"));
-        return string.Join("  ", parts);
+        return parts;
     }
 
     private static string Display(string value, string placeholder) =>
         string.IsNullOrWhiteSpace(value) ? placeholder : value;
-
-    private static IRenderable RuleLine() => Ui.Rule();
 }

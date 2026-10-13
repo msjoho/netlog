@@ -47,7 +47,7 @@ public sealed class StatusCommand : Command<StatusSettings>
         // One-shot static render (no refresh countdown, all hosts) — the same renderer the live TUI uses.
         console.Write(DashboardView.Render(
             new DashboardViewState(report, 0, FocusedIndex: null, now, SecondsToRefresh: null, StaleFor: null),
-            TimeZoneInfo.Local));
+            TimeZoneInfo.Local, ScreenSize.Unbounded(console)));
 
         // Remember this run's *root* (its parent folder) for the TUI (best-effort; never fail the command).
         try

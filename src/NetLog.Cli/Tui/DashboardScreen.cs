@@ -49,7 +49,7 @@ public static class DashboardScreen
                     if (report is null) return Fallback(runPath);
                     nav = nav with { Cursor = Math.Clamp(nav.Cursor, 0, Math.Max(0, report.Hosts.Count - 1)) };
                     return DashboardView.Render(
-                        new DashboardViewState(report, nav.Cursor, nav.Focus, now(), countdown, staleFor), tz);
+                        new DashboardViewState(report, nav.Cursor, nav.Focus, now(), countdown, staleFor), tz, ScreenSize.Of(console));
                 },
                 () =>
                 {

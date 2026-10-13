@@ -226,6 +226,6 @@ public sealed class RunActions
     private void Pause()
     {
         _console.MarkupLine($"[{Theme.Gray}](press a key to continue)[/]");
-        _keys.Read(0);
+        _keys.Read(0);   // blocking on purpose: this is a plain "press a key" pause, not a live frame
     }
 }

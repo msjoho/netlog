@@ -15,10 +15,10 @@ public static class RootSelectScreen
         string? result = null;
 
         ScreenHost.Run(console,
-            () => RootSelectView.Render(new RootSelectViewState(roots, nav.Cursor, nav.Editing, nav.Buffer, nav.Caret)),
+            () => RootSelectView.Render(new RootSelectViewState(roots, nav.Cursor, nav.Editing, nav.Buffer, nav.Caret), ScreenSize.Of(console)),
             () =>
             {
-                if (keys.Read(0) is not { } key) return false;
+                if (keys.Read(ScreenHost.PollMs) is not { } key) return false;
                 var (next, cmd) = RootReducer.Reduce(nav, roots.Count, key);
                 nav = next;
                 switch (cmd)

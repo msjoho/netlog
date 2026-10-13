@@ -12,7 +12,7 @@ public class RunsBrowserViewTests
     {
         var console = new TestConsole();
         var state = new RunsBrowserViewState(@"\\tdfs\InfraOps\netlog", runs, 0, Now);
-        console.Write(RunsBrowserView.Render(state, TimeZoneInfo.Utc));
+        console.Write(RunsBrowserView.Render(state, TimeZoneInfo.Utc, new ScreenSize(76, 200)));
         return console.Output;
     }
 

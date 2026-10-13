@@ -15,10 +15,10 @@ public static class ExclusionsScreen
         IReadOnlyList<ExclusionRule>? result = null;
 
         ScreenHost.Run(console,
-            () => ExclusionsView.Render(state, title, context, warning),
+            () => ExclusionsView.Render(state, title, context, warning, ScreenSize.Of(console)),
             () =>
             {
-                if (keys.Read(0) is not { } key) return false;
+                if (keys.Read(ScreenHost.PollMs) is not { } key) return false;
                 var (next, cmd) = ExclusionsReducer.Reduce(state, key);
                 state = next;
                 switch (cmd)

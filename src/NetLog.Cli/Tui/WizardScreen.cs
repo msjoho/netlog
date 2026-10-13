@@ -23,10 +23,10 @@ public static class WizardScreen
         {
             var pending = WizardCommand.None;
             ScreenHost.Run(console,
-                () => Compose(WizardView.Render(form, root, currentUser), error),
+                () => Compose(WizardView.Render(form, root, currentUser, ScreenSize.Of(console)), error),
                 () =>
                 {
-                    if (keys.Read(0) is not { } key) return false;
+                    if (keys.Read(ScreenHost.PollMs) is not { } key) return false;
                     error = null;
                     var (next, cmd) = WizardReducer.Reduce(form, currentUser, key);
                     form = next;

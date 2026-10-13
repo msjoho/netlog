@@ -9,12 +9,13 @@ namespace NetLog.Cli.Rendering;
 /// the four mutable fields editable with a caret. Pure function of the existing config + form.</summary>
 public static class RunEditView
 {
-    public static IRenderable Render(RunConfig c, RunEditForm f, TimeZoneInfo tz)
+    public static IRenderable Render(RunConfig c, RunEditForm f, TimeZoneInfo tz, ScreenSize size)
     {
+        var w = size.Width;
         var rows = new List<IRenderable>
         {
-            new Markup($"[{Theme.Green}]► netlog[/]   [{Theme.Gray}]edit run[/]                           [{Theme.Gray}]{Markup.Escape(c.RunName)}[/]"),
-            Ui.Rule(),
+            new Markup(Ui.Spread($"[{Theme.Green}]► netlog[/]   [{Theme.Gray}]edit run[/]", $"[{Theme.Gray}]{Markup.Escape(c.RunName)}[/]", w)),
+            Ui.Rule(w),
             Locked("Run name", c.RunName),
             Locked("Targets", string.Join(", ", c.Targets)),
             Locked("Service account", c.ServiceAccount),
@@ -26,11 +27,12 @@ public static class RunEditView
             Editable(f, RunEditField.ArchiveEvery, "Archive every", "", f.ArchiveEvery, "m"),
             Editable(f, RunEditField.Cache, "Cache lifetime", "", f.Cache, "d"),
             ExclusionsRow(f),
-            Ui.Rule(),
-            new Markup($"[{Theme.Hint}]i  Only the highlighted fields can change during a run; grey values are fixed.[/]"),
-            Ui.Rule(),
-            new Markup(Footer(f)),
+            Ui.Rule(w),
         };
+        rows.AddRange(Ui.Wrap("i  Only the highlighted fields can change during a run; grey values are fixed.", w)
+            .Select(l => new Markup($"[{Theme.Hint}]{Markup.Escape(l)}[/]")));
+        rows.Add(Ui.Rule(w));
+        rows.AddRange(Ui.FooterLines(Footer(f), w).Select(l => new Markup(l)));
         return new Rows(rows);
     }
 
@@ -63,7 +65,7 @@ public static class RunEditView
     private static string? EndRight(RunEditForm f) =>
         f.Field == RunEditField.End && f.EndDuration ? "d days · h hours · m minutes" : null;
 
-    private static string Footer(RunEditForm f)
+    private static IEnumerable<string> Footer(RunEditForm f)
     {
         string k(string key, string label) =>
             $"[{Theme.Gray}]{Markup.Escape("[")}[/][{Theme.Green}]{key}[/][{Theme.Gray}]{Markup.Escape("]")} {label}[/]";
@@ -72,6 +74,6 @@ public static class RunEditView
         if (f.Field == RunEditField.Exclusions) parts.Add(k("tab", "edit exclusions"));
         parts.Add(k("enter", "save"));
         parts.Add(k("esc", "cancel"));
-        return string.Join("  ", parts);
+        return parts;
     }
 }

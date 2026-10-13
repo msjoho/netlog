@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("NetLog.Core")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+db108aa1131dcd4cc62a13cb0c0d249eed4d924a")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+16cf08f8f32038b97bfa5849eb8a4727b0677951")]
 [assembly: System.Reflection.AssemblyProductAttribute("NetLog.Core")]
 [assembly: System.Reflection.AssemblyTitleAttribute("NetLog.Core")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

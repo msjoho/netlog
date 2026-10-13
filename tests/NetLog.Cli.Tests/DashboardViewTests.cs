@@ -38,7 +38,7 @@ public class DashboardViewTests
     {
         var console = new TestConsole();
         var state = new DashboardViewState(Report(), cursor, focus, Now, SecondsToRefresh: 4, StaleFor: stale);
-        console.Write(DashboardView.Render(state, TimeZoneInfo.Utc));
+        console.Write(DashboardView.Render(state, TimeZoneInfo.Utc, new ScreenSize(76, 200)));
         return console.Output;
     }
 
@@ -88,50 +88,44 @@ public class DashboardViewTests
         var report = new RunStatusReport("r", RunState.Running, Start, Stop, TimeSpan.Zero, null,
             Array.Empty<HostSummary>(), agg);
         console.Write(DashboardView.Render(
-            new DashboardViewState(report, 0, null, Now, 4, null), TimeZoneInfo.Utc));
+            new DashboardViewState(report, 0, null, Now, 4, null), TimeZoneInfo.Utc, new ScreenSize(76, 200)));
         Assert.Contains("[bold]evil[/]", console.Output);
     }
 
     [Fact]
-    public void Renders_top_users_section_when_present()
+    public void Renders_top_users_as_a_third_panel_when_the_frame_is_wide_enough()
     {
-        // 7 users: indices 0-4 fill the left column, indices 5-6 fill the right column on rows 0-1
-        // (row i pairs left user i with right user i+5) — exercises the two-column split, not just
-        // the "section exists" case. Counts are chosen to not collide with the header's total/in/out
-        // numbers (Stats(1, 0, 1, ...) below), and names are kept within their column widths
-        // (TgtName=20 on the left, ProcName=18 on the right) so nothing gets truncated.
-        var console = new TestConsole();
         var users = new[]
         {
-            ("DOMAIN\\alice", 47, "out"),          // row 0, left
-            ("NT AUTHORITY\\SYSTEM", 38, "io"),    // row 1, left  (19 chars, fits TgtName=20)
-            ("DOMAIN\\carol", 29, "out"),           // row 2, left
-            ("DOMAIN\\dave", 24, "in"),             // row 3, left
-            ("DOMAIN\\erin", 19, "io"),             // row 4, left
-            ("DOMAIN\\frank", 63, "out"),           // row 0, right — pairs with alice
-            ("DOMAIN\\gina", 52, "in"),             // row 1, right — pairs with SYSTEM
+            (@"DOMAIN\alice", 47, "out"),
+            (@"NT AUTHORITY\SYSTEM", 38, "io"),
+            (@"DOMAIN\carol", 29, "out"),
+            (@"DOMAIN\dave", 24, "in"),
+            (@"DOMAIN\erin", 19, "io"),
+            (@"DOMAIN\frank", 63, "out"),
+            (@"DOMAIN\gina", 52, "in"),
         };
         var agg = Stats(1, 0, 1, new[] { ("t", 1) }, new[] { ("p", 1) }, users);
         var report = new RunStatusReport("r", RunState.Running, Start, Stop, TimeSpan.Zero, null,
             Array.Empty<HostSummary>(), agg);
-        console.Write(DashboardView.Render(
-            new DashboardViewState(report, 0, null, Now, 4, null), TimeZoneInfo.Utc));
-        var output = console.Output;
+        var state = new DashboardViewState(report, 0, null, Now, 4, null);
 
-        Assert.Contains("TOP USERS", output);
-        Assert.Contains("DOMAIN\\alice", output);
-        Assert.Contains("47", output);
-        Assert.Contains("SYSTEM", output);
+        var wide = new TestConsole(); wide.Profile.Width = 200;
+        wide.Write(DashboardView.Render(state, TimeZoneInfo.Utc, new ScreenSize(120, 200)));
+        var lines = wide.Output.Replace("\r\n", "\n").Split('\n');
+        var head = Assert.Single(lines, l => l.Contains("TOP TARGETS"));
+        Assert.Contains("TOP USERS", head);
+        var aliceLine = Assert.Single(lines, l => l.Contains(@"DOMAIN\alice"));
+        Assert.Contains("47", aliceLine);
+        Assert.DoesNotContain("frank", aliceLine);                 // one user per row, no second column
+        Assert.Single(lines, l => l.Contains(@"DOMAIN\frank"));
 
-        // The 6th-10th users render in the right column, on the same row as users 1-5 (i pairs with i+5).
-        var lines = output.Replace("\r\n", "\n").Split('\n');
-        var aliceLine = Assert.Single(lines, l => l.Contains("DOMAIN\\alice"));
-        Assert.Contains("DOMAIN\\frank", aliceLine);
-        Assert.Contains("63", aliceLine);
-
-        var systemLine = Assert.Single(lines, l => l.Contains("SYSTEM"));
-        Assert.Contains("DOMAIN\\gina", systemLine);
-        Assert.Contains("52", systemLine);
+        // At 76 columns three panels cannot fit at the 18-character floor: users are hidden and the header says so.
+        var narrow = new TestConsole(); narrow.Profile.Width = 200;
+        narrow.Write(DashboardView.Render(state, TimeZoneInfo.Utc, new ScreenSize(76, 200)));
+        Assert.DoesNotContain("TOP USERS", narrow.Output);
+        Assert.Contains("· users hidden", narrow.Output);
+        Assert.DoesNotContain("alice", narrow.Output);
     }
 
     [Fact]
@@ -157,7 +151,7 @@ public class DashboardViewTests
     private static string RenderReport(RunStatusReport r)
     {
         var console = new TestConsole();
-        console.Write(DashboardView.Render(new DashboardViewState(r, 0, null, Now, null, null), TimeZoneInfo.Utc));
+        console.Write(DashboardView.Render(new DashboardViewState(r, 0, null, Now, null, null), TimeZoneInfo.Utc, new ScreenSize(76, 200)));
         return console.Output;
     }
 

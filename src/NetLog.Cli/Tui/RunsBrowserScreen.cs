@@ -22,11 +22,11 @@ public static class RunsBrowserScreen
             {
                 var runs = RunCatalog.List(root);
                 cursor = Math.Clamp(cursor, 0, Math.Max(0, runs.Count - 1));
-                return RunsBrowserView.Render(new RunsBrowserViewState(root, runs, cursor, now()), TimeZoneInfo.Local);
+                return RunsBrowserView.Render(new RunsBrowserViewState(root, runs, cursor, now()), TimeZoneInfo.Local, ScreenSize.Of(console));
             },
             () =>
             {
-                if (keys.Read(0) is not { } key) return false;
+                if (keys.Read(ScreenHost.PollMs) is not { } key) return false;
                 var runs = RunCatalog.List(root);
                 var (nextCursor, cmd) = BrowserReducer.Reduce(cursor, runs.Count, key);
                 cursor = nextCursor;

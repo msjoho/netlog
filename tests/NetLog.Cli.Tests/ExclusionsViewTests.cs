@@ -10,7 +10,7 @@ public class ExclusionsViewTests
     private static string Render(ExclusionsState s, string? warning = null)
     {
         var console = new TestConsole();
-        console.Write(ExclusionsView.Render(s, "exclusions · new run", @"\\srv\netlog", warning));
+        console.Write(ExclusionsView.Render(s, "exclusions · new run", @"\\srv\netlog", warning, new ScreenSize(76, 200)));
         return console.Output;
     }
 

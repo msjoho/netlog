@@ -9,7 +9,7 @@ public class WizardViewTests
     private static string Render(WizardForm form)
     {
         var console = new TestConsole();
-        console.Write(WizardView.Render(form, @"\\srv\netlog", @"CORP\mjoho"));
+        console.Write(WizardView.Render(form, @"\\srv\netlog", @"CORP\mjoho", new ScreenSize(76, 200)));
         return console.Output;
     }
 

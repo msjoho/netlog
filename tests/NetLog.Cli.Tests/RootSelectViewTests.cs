@@ -9,7 +9,7 @@ public class RootSelectViewTests
     {
         var console = new TestConsole();
         if (ansi) console.EmitAnsiSequences();
-        console.Write(RootSelectView.Render(state));
+        console.Write(RootSelectView.Render(state, new ScreenSize(76, 200)));
         return console.Output;
     }
 
