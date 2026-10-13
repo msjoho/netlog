@@ -57,8 +57,12 @@ public sealed class NewSettings : CommandSettings
     [Description("Do not resolve remote hostnames on the collectors (emergency switch for broken DNS).")]
     public bool NoResolveHostnames { get; set; }
 
-    [CommandOption("--timestamps")]
-    [Description("Record first/last-seen timestamps per connection (off by default).")]
+    [CommandOption("--no-timestamps")]
+    [Description("Do not record first/last-seen timestamps per connection (they are on by default).")]
+    public bool NoTimestamps { get; set; }
+
+    /// <summary>Accepted for older scripts: timestamps are now the default, so this is a no-op.</summary>
+    [CommandOption("--timestamps", IsHidden = true)]
     public bool Timestamps { get; set; }
 
     [CommandOption("--exclude <RULE>")]
@@ -124,7 +128,7 @@ public sealed class NewCommand : Command<NewSettings>
                 settings.ArchiveLevel, settings.PollSeconds, settings.ArchiveMinutes,
                 settings.CacheDays, settings.CacheMb, DateTimeOffset.UtcNow,
                 resolveHostnames: !settings.NoResolveHostnames,
-                timestamps: settings.Timestamps,
+                timestamps: !settings.NoTimestamps,
                 exclusions: exclusions);
         }
         catch (Exception ex) when (ex is ArgumentException or FormatException or InvalidDataException

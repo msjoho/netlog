@@ -15,7 +15,7 @@ One row per unique connection, fourteen fields:
 - **Archive level `Full`:** dedup only. **`Merged`:** also drops the initiator's ephemeral `SourcePort` and collapses.
 - **Identity:** `Usernames` and `ProcessPath` are semicolon-separated lists, merged across every sighting of the same connection. `Process` is decorated as `svchost (ServiceName)` when the process is a shared `svchost.exe` host hosting a resolvable service.
 - **Persistence counters:** `SeenCount` (poll-sample count; at Merged: max of contributing connections) and `Connections` (distinct initiator source ports; Merged level only) use idempotent max-merges, never accumulated.
-- **Timestamps:** `FirstSeen`/`LastSeen` are recorded only when the run is created with `--timestamps` (off by default) or with the wizard's **Timestamps** field switched on.
+- **Timestamps:** `FirstSeen`/`LastSeen` are recorded by default. Create the run with `--no-timestamps`, or switch the wizard's **Timestamps** field off, for a time-free archive.
 - **Top users:** when `Usernames` data is present, the dashboard/`netlog status` frame adds a TOP USERS panel alongside TOP TARGETS/PROCESSES.
 - **Exclusions:** rules on the process name, the owning username, or the remote peer's host (target for outgoing, source for incoming) drop matching connections on the collector — they never reach the cache, the share, or the dashboard. See *Exclusions* below.
 - Old 6- and 8-column runs are upgraded on read (Incoming rows swap ends; hostnames blank; identity/timestamp fields absent).
@@ -43,7 +43,7 @@ netlog status --path \\share\runs\audit      # dashboard: state, duration, stats
 netlog stop   --path \\share\runs\audit      # stop + unregister the task on each target
 ```
 
-`netlog new` options: `--start now|<iso>`, `--stop <iso>` or `--duration 7d/12h/90m`, `--archive-level Full|Merged`, `--poll <s>`, `--archive-interval <m>`, `--cache-days <d>` or `--cache-mb <mb>`, `--no-resolve-hostnames`, `--timestamps`, `--exclude <rule>` (repeatable), `--no-root-exclusions`.
+`netlog new` options: `--start now|<iso>`, `--stop <iso>` or `--duration 7d/12h/90m`, `--archive-level Full|Merged`, `--poll <s>`, `--archive-interval <m>`, `--cache-days <d>` or `--cache-mb <mb>`, `--no-resolve-hostnames`, `--no-timestamps`, `--exclude <rule>` (repeatable), `--no-root-exclusions`.
 
 **Credentials:** `netlog start` prompts for the service-account password (masked) and passes it to the deployment only via the child process environment — never on a command line. The Scheduled Task stores it in Windows' protected store on each host.
 
@@ -52,16 +52,18 @@ netlog stop   --path \\share\runs\audit      # stop + unregister the task on eac
 `netlog` (no args) opens a self-refreshing, single-screen terminal UI driven by single-key hotkeys:
 
 1. **Root select** — pick the folder that holds your runs (e.g. `\\tdfs\InfraOps\Sources\netlog`); recent roots are remembered. `r` adds a new one.
-2. **Runs browser** — every subfolder with a `run.json` is listed as a run (folder name = run name; full paths are never shown) with its window-derived state and host count. `enter` opens one, `c` creates a new one, `x` edits exclusions (the root template), `r` changes root.
+2. **Runs browser** — every subfolder with a `run.json` is listed as a run (folder name = run name; full paths are never shown) with its window-derived state and host count. `enter` opens one, `c` creates a new one, `d` deletes one, `x` edits exclusions (the root template), `r` changes root.
 3. **Live dashboard** — re-reads the run folder every few seconds (state, elapsed, heartbeats, top-10 stats; each top target/process is tagged `in`/`out`/`io`; per-host `excl` column). Arrow through hosts and press `enter` to **focus** one — the stats panels narrow to that host; `enter` on another host switches focus directly, `enter` on the focused host (or `a`/`Esc`) unfocuses. `s` deploy · `x` destroy · `n` new window · `e` edit · `r` refresh · `q` back. A share outage keeps the last good frame and flags it stale instead of crashing.
 
 **Editing a running run** (`e`) — the end (duration/date), poll interval, archive interval and cache lifetime can be changed while a run is live; immutable fields (name, targets, account, archive level, start) are shown greyed. The collector re-reads `run.json` each cycle, so edits take effect within one archive cycle (collectors deployed before this change need one redeploy to pick up the re-read).
+
+**Deleting a run** (`d` on the runs browser) — after a confirmation that spells out that **all collected data** in the run folder goes too, it destroys the collector on every target (stops and unregisters the task, removes the run's local cache/log under `%ProgramData%\NetworkActivityLogger\<run>`, and removes the shared collector binaries only when no other NetLog task remains on that host), then deletes the run folder on the share. If a host fails (unreachable, access denied), the results are shown and you are asked once more whether to delete the share folder anyway. The dashboard's `x` destroy is unchanged: it removes the task but keeps `run.json`, the local cache and the data for a later re-deploy.
 
 **Merging a Full run** (`m`, shown only for `Full` runs) — condenses each host's `connections.csv` to Merged level in place and moves the original Full file to `<run>/_archive/<timestamp>/`, so the raw data is kept. Offered only once collection has stopped (it's blocked while a collector is still live, since the collector would overwrite the merged file). The run stays recorded as `Full`.
 
 The whole flow stays in the themed TUI — the new-window schedule, the masked password, and confirmations are all in-app (no console prompts), and the screen patches in place without flicker. All timestamps render in local time with the offset shown.
 
-The new-run wizard takes a run *name* (the run is created under the selected root); fields edit with a movable caret (arrows/Backspace/Delete) and toggle **Start** (`now` ⇄ date), **End** (duration ⇄ date), and **Timestamps** (`off` ⇄ `on`) with `Tab`. Creating a run **deploys by default** (confirm; choose no to create it without deploying). `[s] deploy` registers the Scheduled Task (honouring the start time); `[x] destroy` removes the task on the targets while keeping `run.json` and the collected data on the share. The dashboard view is shared with `netlog status`, which prints the same frame once (non-interactively).
+The new-run wizard takes a run *name* (the run is created under the selected root); fields edit with a movable caret (arrows/Backspace/Delete, also in the root-path, new-window and password fields) and toggle **Start** (`now` ⇄ date), **End** (duration ⇄ date), and **Timestamps** (`on` ⇄ `off`) with `Tab`. Creating a run **deploys by default** (confirm; choose no to create it without deploying). `[s] deploy` registers the Scheduled Task (honouring the start time); `[x] destroy` removes the task on the targets while keeping `run.json` and the collected data on the share. The dashboard view is shared with `netlog status`, which prints the same frame once (non-interactively).
 
 ## Exclusions
 

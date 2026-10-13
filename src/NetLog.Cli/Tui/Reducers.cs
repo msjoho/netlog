@@ -31,7 +31,7 @@ public static class DashboardReducer
 }
 
 // ── Runs browser ─────────────────────────────────────────────────────────────
-public enum BrowserCommand { None, OpenRun, NewRun, ChangeRoot, Quit, Exclusions }
+public enum BrowserCommand { None, OpenRun, NewRun, ChangeRoot, Quit, Exclusions, DeleteRun }
 
 public static class BrowserReducer
 {
@@ -46,6 +46,7 @@ public static class BrowserReducer
         if (k.Is('c')) return (cursor, BrowserCommand.NewRun);
         if (k.Is('r')) return (cursor, BrowserCommand.ChangeRoot);
         if (k.Is('x')) return (cursor, BrowserCommand.Exclusions);
+        if (k.Is('d')) return (cursor, runCount > 0 ? BrowserCommand.DeleteRun : BrowserCommand.None);
         if (k.Is('q')) return (cursor, BrowserCommand.Quit);
         return (cursor, BrowserCommand.None);
     }
@@ -53,7 +54,7 @@ public static class BrowserReducer
 
 // ── Root select ──────────────────────────────────────────────────────────────
 public enum RootCommand { None, OpenRoot, SubmitNewRoot, Quit }
-public sealed record RootNav(int Cursor, bool Editing, string Buffer);
+public sealed record RootNav(int Cursor, bool Editing, string Buffer, int Caret = 0);
 
 public static class RootReducer
 {
@@ -61,12 +62,12 @@ public static class RootReducer
     {
         if (nav.Editing)
         {
+            if (TextEdit.Apply(nav.Buffer, nav.Caret, k) is { } e)
+                return (nav with { Buffer = e.Text, Caret = e.Caret }, RootCommand.None);
             switch (k.Kind)
             {
-                case KeyKind.Char:      return (nav with { Buffer = nav.Buffer + k.Char }, RootCommand.None);
-                case KeyKind.Backspace: return (nav with { Buffer = nav.Buffer.Length > 0 ? nav.Buffer[..^1] : "" }, RootCommand.None);
                 case KeyKind.Enter:     return (nav, RootCommand.SubmitNewRoot);
-                case KeyKind.Esc:       return (nav with { Editing = false, Buffer = "" }, RootCommand.None);
+                case KeyKind.Esc:       return (nav with { Editing = false, Buffer = "", Caret = 0 }, RootCommand.None);
                 default:                return (nav, RootCommand.None);
             }
         }
@@ -77,7 +78,7 @@ public static class RootReducer
             case KeyKind.Down:  return (nav with { Cursor = Math.Min(Math.Max(0, rootCount - 1), nav.Cursor + 1) }, RootCommand.None);
             case KeyKind.Enter: return (nav, rootCount > 0 ? RootCommand.OpenRoot : RootCommand.None);
         }
-        if (k.Is('r')) return (nav with { Editing = true, Buffer = "" }, RootCommand.None);
+        if (k.Is('r')) return (nav with { Editing = true, Buffer = "", Caret = 0 }, RootCommand.None);
         if (k.Is('q')) return (nav, RootCommand.Quit);
         return (nav, RootCommand.None);
     }

@@ -1,12 +1,14 @@
 <#
 .SYNOPSIS
-  Entry point the netlog CLI shells to. Deploys or tears down the collector on each target.
+  Entry point the netlog CLI shells to. Deploys, tears down, or removes (teardown + purge of the
+  run's local state and, when no other NetLog task remains, the shared binaries) the collector on
+  each target.
   The service-account password is read from $env:NETLOG_DEPLOY_PASSWORD (never passed on argv).
   Emits one JSON line per target result to stdout.
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('deploy','teardown')][string]$Action,
+    [Parameter(Mandatory)][ValidateSet('deploy','teardown','remove')][string]$Action,
     [Parameter(Mandatory)][string]$Targets,           # comma-separated
     [Parameter(Mandatory)][string]$RunName,
     [string]$RunPath,
@@ -36,6 +38,8 @@ foreach ($t in $targetList) {
         $r = Invoke-NetLogHostDeploy -Target $t -RunPath $RunPath -RunName $RunName -Account $Account `
             -Password $plainPassword -CollectorSource $CollectorSource -InstallDir $InstallDir `
             -StartNow:$StartNow -StartUtc $StartUtc -Credential $cred
+    } elseif ($Action -eq 'remove') {
+        $r = Invoke-NetLogHostTeardown -Target $t -RunName $RunName -Credential $cred -PurgeLocalState -InstallDir $InstallDir
     } else {
         $r = Invoke-NetLogHostTeardown -Target $t -RunName $RunName -Credential $cred
     }

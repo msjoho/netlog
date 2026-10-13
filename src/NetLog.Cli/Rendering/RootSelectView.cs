@@ -8,7 +8,8 @@ public sealed record RootSelectViewState(
     IReadOnlyList<string> RecentRoots,
     int CursorIndex,
     bool Editing,
-    string Buffer);
+    string Buffer,
+    int Caret = 0);
 
 public static class RootSelectView
 {
@@ -34,7 +35,7 @@ public static class RootSelectView
 
         if (s.Editing)
         {
-            rows.Add(new Markup($"[{Theme.Green}]New root path[/]  [{Theme.White}]{Markup.Escape(s.Buffer)}[/][{Theme.Green}]|[/]"));
+            rows.Add(new Markup($"[{Theme.Green}]New root path[/]  [{Theme.White}]{Theme.Caret_(s.Buffer, s.Caret)}[/]"));
             rows.Add(new Markup($"[{Theme.Hint}]i  This SMB share must be reachable from every target host, with modify access[/]"));
             rows.Add(new Markup($"[{Theme.Hint}]   for the configured service account.[/]"));
             rows.Add(RuleLine());

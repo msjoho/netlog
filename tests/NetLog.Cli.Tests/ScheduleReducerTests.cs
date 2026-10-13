@@ -45,6 +45,36 @@ public class ScheduleReducerTests
     }
 
     [Fact]
+    public void Default_caret_sits_at_the_end_of_the_duration()
+    {
+        Assert.Equal(2, ScheduleForm.Default().Caret);               // "7d"
+    }
+
+    [Fact]
+    public void Left_moves_the_caret_and_typing_inserts_there()
+    {
+        var f = At(1);                                               // End: duration "7d", caret 2
+        f = ScheduleReducer.Reduce(f, KeyPress.Left).Form;
+        Assert.Equal(1, f.Caret);
+        f = ScheduleReducer.Reduce(f, KeyPress.Of('0')).Form;
+        Assert.Equal("70d", f.Duration);
+        Assert.Equal(2, f.Caret);
+    }
+
+    [Fact]
+    public void Field_change_and_tab_put_the_caret_at_the_end_of_the_new_value()
+    {
+        var f = At(1) with { Caret = 0 };
+        Assert.Equal(0, ScheduleReducer.Reduce(f, KeyPress.Up).Form.Caret);          // Start while "now": no text
+        var dated = ScheduleReducer.Reduce(f, KeyPress.Tab).Form;                     // -> End date ""
+        Assert.Equal(0, dated.Caret);
+        var back = ScheduleReducer.Reduce(dated, KeyPress.Tab).Form;                  // -> duration "7d"
+        Assert.Equal(2, back.Caret);
+        var start = ScheduleReducer.Reduce(At(0) with { StartDate = "2026-09-01" }, KeyPress.Tab).Form;   // now -> date
+        Assert.Equal(10, start.Caret);
+    }
+
+    [Fact]
     public void Enter_submits_and_esc_cancels()
     {
         Assert.Equal(ScheduleCommand.Submit, ScheduleReducer.Reduce(At(0), KeyPress.Enter).Cmd);

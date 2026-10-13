@@ -76,6 +76,18 @@ public class DeployRequestTests
     }
 
     [Fact]
+    public void Stop_BuildTeardownRequest_with_purge_is_the_remove_action()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var cfg = Config(new[] { "S1", "S2" }, "DOMAIN\\svc", now.AddHours(-1), now.AddDays(1));
+        var req = StopCommand.BuildTeardownRequest(cfg, @"\\s\a", purge: true);
+        Assert.Equal("remove", req.Action);
+        Assert.Equal("S1,S2", req.Targets);
+        Assert.Equal("audit", req.RunName);
+        Assert.Null(req.Password);
+    }
+
+    [Fact]
     public void Fake_runner_records_request_and_returns_result()
     {
         var fake = new FakeRunner { Result = new List<DeployResult> { new("S1", "Success", null) } };

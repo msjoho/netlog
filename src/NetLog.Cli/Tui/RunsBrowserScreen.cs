@@ -4,7 +4,7 @@ using Spectre.Console;
 
 namespace NetLog.Cli.Tui;
 
-public enum BrowserResult { Quit, ChangeRoot, OpenRun, NewRun, Exclusions }
+public enum BrowserResult { Quit, ChangeRoot, OpenRun, NewRun, Exclusions, DeleteRun }
 
 /// <summary>Screen 1 — browse the runs (subfolders) under a root. Re-lists each frame so a freshly
 /// created run shows up. Returns what the user chose to do next (and the run folder for OpenRun).</summary>
@@ -34,6 +34,8 @@ public static class RunsBrowserScreen
                 {
                     case BrowserCommand.OpenRun when runs.Count > 0:
                         result = BrowserResult.OpenRun; folder = runs[Math.Clamp(cursor, 0, runs.Count - 1)].FolderName; return true;
+                    case BrowserCommand.DeleteRun when runs.Count > 0:
+                        result = BrowserResult.DeleteRun; folder = runs[Math.Clamp(cursor, 0, runs.Count - 1)].FolderName; return true;
                     case BrowserCommand.NewRun:
                         result = BrowserResult.NewRun; return true;
                     case BrowserCommand.ChangeRoot:

@@ -48,13 +48,13 @@ public class WizardViewTests
     }
 
     [Fact]
-    public void Timestamps_focused_shows_default_off_and_switch_on_tab()
+    public void Timestamps_focused_shows_default_on_and_switch_off_tab()
     {
         var f = WizardForm.Default() with { FieldIndex = (int)WizardField.Timestamps };
         var o = Render(f);
         Assert.Contains("Timestamps", o);
-        Assert.Contains("off", o);
-        Assert.Contains("switch on", o);
+        Assert.Contains("switch off", o);
+        Assert.DoesNotContain("switch on", o);
     }
 
     [Fact]

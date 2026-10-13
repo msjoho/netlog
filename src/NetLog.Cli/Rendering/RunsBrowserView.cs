@@ -61,7 +61,7 @@ public static class RunsBrowserView
             $"[{Theme.Gray}]{Markup.Escape("[")}[/][{Theme.Green}]{key}[/][{Theme.Gray}]{Markup.Escape("]")} {label}[/]";
         return empty
             ? string.Join("  ", k("c", "create the first run"), k("x", "exclusions"), k("r", "change root"), k("q", "quit"))
-            : string.Join("  ", k("↑↓", "move"), k("enter", "open run"), k("c", "new run"), k("x", "exclusions"), k("r", "change root"), k("q", "quit"));
+            : string.Join("  ", k("↑↓", "move"), k("enter", "open run"), k("c", "new run"), k("d", "delete"), k("x", "exclusions"), k("r", "change root"), k("q", "quit"));
     }
 
     private static IRenderable RuleLine() => Ui.Rule();

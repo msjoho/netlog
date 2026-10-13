@@ -14,7 +14,7 @@ public sealed record WizardForm(
     bool StartNow, string StartDate,
     bool EndDuration, string Duration, string EndDate,
     string ArchiveLevel, string Poll, string ArchiveEvery, string Cache,
-    int Caret, bool Timestamps = false,
+    int Caret, bool Timestamps = true,
     IReadOnlyList<ExclusionRule>? Exclusions = null, string? RootExclusionsError = null, bool ExclusionsEdited = false)
 {
     public const int FieldCount = 11;
@@ -25,7 +25,7 @@ public sealed record WizardForm(
         StartNow: true, StartDate: "",
         EndDuration: true, Duration: "7d", EndDate: "",
         ArchiveLevel: "Merged", Poll: "10", ArchiveEvery: "60", Cache: "7",
-        Caret: 0, Timestamps: false);
+        Caret: 0, Timestamps: true);
 
     public WizardField Field => (WizardField)FieldIndex;
 
@@ -68,47 +68,22 @@ public static class WizardReducer
         {
             case KeyKind.Up:    return (Focus(f, Math.Max(0, f.FieldIndex - 1)), WizardCommand.None);
             case KeyKind.Down:  return (Focus(f, Math.Min(WizardForm.FieldCount - 1, f.FieldIndex + 1)), WizardCommand.None);
-            case KeyKind.Left:  return (f with { Caret = Math.Max(0, f.Caret - 1) }, WizardCommand.None);
-            case KeyKind.Right: return (f with { Caret = Math.Min((f.Active?.Length ?? 0), f.Caret + 1) }, WizardCommand.None);
             case KeyKind.Enter: return (f, WizardCommand.Create);
             case KeyKind.Esc:   return (f, WizardCommand.Cancel);
             case KeyKind.Tab:
                 if (f.Field == WizardField.Exclusions) return (f, WizardCommand.EditExclusions);
                 return (AtEnd(Flip(f, currentUser)), WizardCommand.None);
-            case KeyKind.Char:      return (Insert(f, k.Char), WizardCommand.None);
-            case KeyKind.Backspace: return (DeleteBack(f), WizardCommand.None);
-            case KeyKind.Delete:    return (DeleteAt(f), WizardCommand.None);
-            default:            return (f, WizardCommand.None);
         }
+        // Non-text fields (Start while now, ArchiveLevel, Timestamps, Exclusions) ignore text keys.
+        if (f.Active is { } text && TextEdit.Apply(text, f.Caret, k) is { } e)
+            return (f.WithActive(e.Text) with { Caret = e.Caret }, WizardCommand.None);
+        return (f, WizardCommand.None);
     }
 
     private static WizardForm Focus(WizardForm f, int index) => AtEnd(f with { FieldIndex = index });
 
     /// <summary>Put the caret at the end of the focused field's editable value (0 for non-text fields).</summary>
     private static WizardForm AtEnd(WizardForm f) => f with { Caret = f.Active?.Length ?? 0 };
-
-    private static WizardForm Insert(WizardForm f, char c)
-    {
-        if (f.Active is not { } s) return f;
-        var caret = Math.Clamp(f.Caret, 0, s.Length);
-        return f.WithActive(s[..caret] + c + s[caret..]) with { Caret = caret + 1 };
-    }
-
-    private static WizardForm DeleteBack(WizardForm f)
-    {
-        if (f.Active is not { } s) return f;
-        var caret = Math.Clamp(f.Caret, 0, s.Length);
-        if (caret == 0) return f;
-        return f.WithActive(s[..(caret - 1)] + s[caret..]) with { Caret = caret - 1 };
-    }
-
-    private static WizardForm DeleteAt(WizardForm f)
-    {
-        if (f.Active is not { } s) return f;
-        var caret = Math.Clamp(f.Caret, 0, s.Length);
-        if (caret >= s.Length) return f;
-        return f.WithActive(s[..caret] + s[(caret + 1)..]);
-    }
 
     private static WizardForm Flip(WizardForm f, string currentUser) => f.Field switch
     {

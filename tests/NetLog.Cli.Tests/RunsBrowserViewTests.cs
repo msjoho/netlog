@@ -41,6 +41,13 @@ public class RunsBrowserViewTests
     }
 
     [Fact]
+    public void Footer_offers_d_delete_only_when_there_are_runs()
+    {
+        Assert.DoesNotContain("delete", Render());
+        Assert.Contains("delete", Render(new RunListing("audit", Now.AddDays(-1), Now.AddDays(1), 2)));
+    }
+
+    [Fact]
     public void Footer_offers_x_exclusions_with_and_without_runs()
     {
         Assert.Contains("exclusions", Render());

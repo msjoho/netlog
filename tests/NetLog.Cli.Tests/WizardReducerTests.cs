@@ -20,6 +20,12 @@ public class WizardReducerTests
     }
 
     [Fact]
+    public void Timestamps_are_on_by_default()
+    {
+        Assert.True(Form().Timestamps);
+    }
+
+    [Fact]
     public void Up_down_moves_field_within_bounds()
     {
         Assert.Equal(1, WizardReducer.Reduce(At(WizardField.RunName), CurrentUser, KeyPress.Down).Form.FieldIndex);
@@ -155,9 +161,9 @@ public class WizardReducerTests
     {
         var f = At(WizardField.Timestamps);
         f = WizardReducer.Reduce(f, CurrentUser, KeyPress.Tab).Form;
-        Assert.True(f.Timestamps);
-        f = WizardReducer.Reduce(f, CurrentUser, KeyPress.Tab).Form;
         Assert.False(f.Timestamps);
+        f = WizardReducer.Reduce(f, CurrentUser, KeyPress.Tab).Form;
+        Assert.True(f.Timestamps);
     }
 
     [Fact]

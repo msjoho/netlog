@@ -117,3 +117,71 @@ Describe 'Invoke-NetLogHostTeardown (with fake operations)' {
         $calls | Should -Contain 'unregister:NetLogCollector_audit'
     }
 }
+
+Describe 'Invoke-NetLogHostTeardown -PurgeLocalState (with fake operations)' {
+    BeforeEach {
+        $script:calls = [System.Collections.Generic.List[string]]::new()
+        $script:otherTasks = $false
+        $script:ops = @{
+            NewSession          = { param($Target, $Credential) 'S' }
+            StopTask            = { param($Session, $TaskName) $script:calls.Add("stop:$TaskName") }
+            UnregisterTask      = { param($Session, $TaskName) $script:calls.Add("unregister:$TaskName") }
+            RemoveLocalRunDir   = { param($Session, $RunName) $script:calls.Add("removerundir:$RunName") }
+            OtherNetLogTasksExist = { param($Session, $TaskName) $script:calls.Add("othertasks?:$TaskName"); $script:otherTasks }
+            RemoveInstallDir    = { param($Session, $InstallDir) $script:calls.Add("removeinstall:$InstallDir") }
+            RemoveSession       = { param($Session) $script:calls.Add('removesession') }
+        }
+    }
+
+    It 'without the switch it only stops and unregisters (binaries and local state stay)' {
+        $r = Invoke-NetLogHostTeardown -Target 'S1' -RunName 'audit' -Credential $null -Operations $script:ops
+        $r.Status | Should -Be 'Success'
+        $script:calls | Should -Not -Contain 'removerundir:audit'
+        ($script:calls | Where-Object { $_ -like 'removeinstall:*' }) | Should -BeNullOrEmpty
+    }
+
+    It 'removes the run''s local folder and, when no other NetLog task remains, the shared binaries' {
+        $r = Invoke-NetLogHostTeardown -Target 'S1' -RunName 'audit' -Credential $null -Operations $script:ops `
+            -PurgeLocalState -InstallDir 'C:\ProgramData\NetworkActivityLogger\bin'
+        $r.Status | Should -Be 'Success'
+        $script:calls | Should -Contain 'unregister:NetLogCollector_audit'
+        $script:calls | Should -Contain 'removerundir:audit'
+        $script:calls | Should -Contain 'removeinstall:C:\ProgramData\NetworkActivityLogger\bin'
+        # the task is unregistered before we look for others, so it never counts itself
+        $script:calls.IndexOf('unregister:NetLogCollector_audit') | Should -BeLessThan $script:calls.IndexOf('othertasks?:NetLogCollector_audit')
+    }
+
+    It 'keeps the shared binaries while another NetLog task exists on the host' {
+        $script:otherTasks = $true
+        $r = Invoke-NetLogHostTeardown -Target 'S1' -RunName 'audit' -Credential $null -Operations $script:ops `
+            -PurgeLocalState -InstallDir 'C:\ProgramData\NetworkActivityLogger\bin'
+        $r.Status | Should -Be 'Success'
+        $script:calls | Should -Contain 'removerundir:audit'
+        ($script:calls | Where-Object { $_ -like 'removeinstall:*' }) | Should -BeNullOrEmpty
+    }
+
+    It 'reports Failed when purging throws, and still removes the session' {
+        $script:ops.RemoveLocalRunDir = { param($Session, $RunName) throw 'access denied' }
+        $r = Invoke-NetLogHostTeardown -Target 'S1' -RunName 'audit' -Credential $null -Operations $script:ops `
+            -PurgeLocalState -InstallDir 'C:\bin'
+        $r.Status | Should -Be 'Failed'
+        $r.Error  | Should -BeLike '*access denied*'
+        $script:calls | Should -Contain 'removesession'
+    }
+}
+
+Describe 'Get-NetLogDefaultOperations (purge operations)' {
+    It 'provides the three purge operations' {
+        $ops = Get-NetLogDefaultOperations
+        $ops.Keys | Should -Contain 'RemoveLocalRunDir'
+        $ops.Keys | Should -Contain 'OtherNetLogTasksExist'
+        $ops.Keys | Should -Contain 'RemoveInstallDir'
+    }
+}
+
+Describe 'deploy-entry.ps1 (remove action)' {
+    It 'accepts the remove action' {
+        $cmd = Get-Command "$PSScriptRoot\..\deploy-entry.ps1"
+        $cmd.Parameters['Action'].Attributes.Where({ $_ -is [System.Management.Automation.ValidateSetAttribute] }).ValidValues | Should -Contain 'remove'
+    }
+}

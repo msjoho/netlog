@@ -39,10 +39,12 @@ public sealed class StopCommand : Command<StopSettings>
         return StartCommand.RenderResults(results, "Teardown");
     }
 
-    /// <summary>Pure builder (testable without Spectre/CommandContext): teardown carries no password.</summary>
-    public static DeployRequest BuildTeardownRequest(RunConfig config, string runPath) =>
+    /// <summary>Pure builder (testable without Spectre/CommandContext): teardown carries no password.
+    /// <paramref name="purge"/> selects the deploy script's "remove" action, which also deletes the
+    /// run's local state on each host (and the shared binaries when no other NetLog task remains).</summary>
+    public static DeployRequest BuildTeardownRequest(RunConfig config, string runPath, bool purge = false) =>
         new DeployRequest(
-            Action: "teardown",
+            Action: purge ? "remove" : "teardown",
             Targets: string.Join(",", config.Targets),
             RunName: config.RunName,
             RunPath: runPath,

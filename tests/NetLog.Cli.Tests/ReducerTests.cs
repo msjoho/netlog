@@ -68,9 +68,16 @@ public class BrowserReducerTests
     [InlineData('c', BrowserCommand.NewRun)]
     [InlineData('r', BrowserCommand.ChangeRoot)]
     [InlineData('q', BrowserCommand.Quit)]
+    [InlineData('d', BrowserCommand.DeleteRun)]
     public void Hotkeys_map_to_commands(char key, BrowserCommand expected)
     {
         Assert.Equal(expected, BrowserReducer.Reduce(0, 3, KeyPress.Of(key)).Cmd);
+    }
+
+    [Fact]
+    public void D_with_no_runs_is_a_noop()
+    {
+        Assert.Equal(BrowserCommand.None, BrowserReducer.Reduce(0, 0, KeyPress.Of('d')).Cmd);
     }
 
     [Fact]
@@ -109,6 +116,19 @@ public class RootReducerTests
         Assert.Equal("ab", s.Buffer);
         s = RootReducer.Reduce(s, 0, KeyPress.Backspace).Nav;
         Assert.Equal("a", s.Buffer);
+    }
+
+    [Fact]
+    public void Left_moves_the_caret_and_typing_inserts_there()
+    {
+        var s = Nav(editing: true, buffer: "ab") with { Caret = 2 };
+        s = RootReducer.Reduce(s, 0, KeyPress.Left).Nav;
+        Assert.Equal(1, s.Caret);
+        s = RootReducer.Reduce(s, 0, KeyPress.Of('x')).Nav;
+        Assert.Equal("axb", s.Buffer);
+        Assert.Equal(2, s.Caret);
+        s = RootReducer.Reduce(s, 0, KeyPress.Delete).Nav;       // removes 'b' under the caret
+        Assert.Equal("ax", s.Buffer);
     }
 
     [Fact]

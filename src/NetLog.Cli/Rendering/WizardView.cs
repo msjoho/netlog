@@ -97,7 +97,7 @@ public static class WizardView
         WizardField.Poll         => "How often each host samples its TCP connections (seconds).",
         WizardField.ArchiveEvery => "How often samples are flushed to the share (minutes).",
         WizardField.Cache        => "Local cache lifetime on each host (days).",
-        WizardField.Timestamps   => "Record first/last-seen instants per connection (off keeps the archive time-free).",
+        WizardField.Timestamps   => "Record first/last-seen instants per connection (on by default; off keeps the archive time-free).",
         WizardField.Exclusions   => "Seeded from the root's exclusions.json; this run only — tab to add or remove.",
         _ => "",
     };

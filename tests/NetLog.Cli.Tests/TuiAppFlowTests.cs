@@ -1,3 +1,4 @@
+using NetLog.Cli.Deploy;
 using NetLog.Cli.Tui;
 using NetLog.Core.Io;
 using NetLog.Core.Models;
@@ -82,6 +83,33 @@ public class TuiAppFlowTests
 
         Assert.Equal(0, app.Run());
         Assert.Contains("audit-q2", console.Output);   // dashboard/browser rendered the run
+
+        Directory.Delete(root, recursive: true);
+    }
+
+    [Fact]
+    public void D_in_the_browser_offers_to_delete_the_highlighted_run()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "nlflow_del_" + Guid.NewGuid().ToString("N"));
+        var runDir = Path.Combine(root, "audit-q2");
+        Directory.CreateDirectory(runDir);
+        var cfg = new RunConfig("audit-q2", Now.AddDays(-1),
+            new RunSchedule(Now.AddHours(-1), Now.AddDays(1)), new[] { "H1" }, "DOMAIN\\svc",
+            new RunSettings("Merged", 10, 60, 7, null));
+        RunConfigWriter.WriteFile(Path.Combine(runDir, "run.json"), cfg);
+        var profile = TempProfile();
+        profile.Save(new Profile(new[] { root }));
+
+        var console = new TestConsole();
+        var runner = new FakeRunner { Result = new[] { new DeployResult("H1", "Success", null) } };
+        // Enter: open root. d: delete -> confirm. y: yes -> results pause (Enter) -> deleted info (Enter). q: quit.
+        var keys = new[] { KeyPress.Enter, KeyPress.Of('d'), KeyPress.Of('y'), KeyPress.Enter, KeyPress.Enter, KeyPress.Of('q') };
+        var app = new TuiApp(console, new ScriptedKeySource(keys), profile, runner, () => Now);
+
+        Assert.Equal(0, app.Run());
+        Assert.Equal("remove", runner.Last?.Action);
+        Assert.False(Directory.Exists(runDir));
+        Assert.True(Directory.Exists(root));            // only the run went, not the root
 
         Directory.Delete(root, recursive: true);
     }

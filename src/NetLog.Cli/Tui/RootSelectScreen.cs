@@ -15,7 +15,7 @@ public static class RootSelectScreen
         string? result = null;
 
         ScreenHost.Run(console,
-            () => RootSelectView.Render(new RootSelectViewState(roots, nav.Cursor, nav.Editing, nav.Buffer)),
+            () => RootSelectView.Render(new RootSelectViewState(roots, nav.Cursor, nav.Editing, nav.Buffer, nav.Caret)),
             () =>
             {
                 if (keys.Read(0) is not { } key) return false;
@@ -29,7 +29,7 @@ public static class RootSelectScreen
                     case RootCommand.SubmitNewRoot:
                         var p = nav.Buffer.Trim();
                         if (p.Length > 0) { result = p; return true; }
-                        nav = nav with { Editing = false, Buffer = "" };
+                        nav = nav with { Editing = false, Buffer = "", Caret = 0 };
                         return false;
                     case RootCommand.Quit:
                         return true;

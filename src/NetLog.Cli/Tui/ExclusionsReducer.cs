@@ -40,19 +40,14 @@ public static class ExclusionsReducer
 
     private static ExclusionsState ReduceAdding(ExclusionsState s, KeyPress k)
     {
-        var caret = Math.Clamp(s.Caret, 0, s.Buffer.Length);
+        if (TextEdit.Apply(s.Buffer, s.Caret, k) is { } e)
+        {
+            // Editing the text clears a stale parse error; merely moving the caret keeps it visible.
+            var moved = k.Kind is KeyKind.Left or KeyKind.Right;
+            return s with { Buffer = e.Text, Caret = e.Caret, Error = moved ? s.Error : null };
+        }
         switch (k.Kind)
         {
-            case KeyKind.Char:
-                return s with { Buffer = s.Buffer[..caret] + k.Char + s.Buffer[caret..], Caret = caret + 1, Error = null };
-            case KeyKind.Backspace:
-                return caret == 0 ? s with { Error = null }
-                    : s with { Buffer = s.Buffer[..(caret - 1)] + s.Buffer[caret..], Caret = caret - 1, Error = null };
-            case KeyKind.Delete:
-                return caret >= s.Buffer.Length ? s with { Error = null }
-                    : s with { Buffer = s.Buffer[..caret] + s.Buffer[(caret + 1)..], Error = null };
-            case KeyKind.Left:  return s with { Caret = Math.Max(0, caret - 1) };
-            case KeyKind.Right: return s with { Caret = Math.Min(s.Buffer.Length, caret + 1) };
             case KeyKind.Esc:   return s with { Adding = false, Buffer = "", Caret = 0, Error = null };
             case KeyKind.Enter:
                 if (!ExclusionRuleParser.TryParse(s.Buffer, out var rule, out var error))

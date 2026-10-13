@@ -55,18 +55,16 @@ public static class RunEditReducer
         {
             case KeyKind.Up:    return (Focus(f, Math.Max(0, f.FieldIndex - 1)), RunEditCommand.None);
             case KeyKind.Down:  return (Focus(f, Math.Min(RunEditForm.FieldCount - 1, f.FieldIndex + 1)), RunEditCommand.None);
-            case KeyKind.Left:  return (f with { Caret = Math.Max(0, f.Caret - 1) }, RunEditCommand.None);
-            case KeyKind.Right: return (f with { Caret = Math.Min(f.Active.Length, f.Caret + 1) }, RunEditCommand.None);
             case KeyKind.Enter: return (f, RunEditCommand.Save);
             case KeyKind.Esc:   return (f, RunEditCommand.Cancel);
             case KeyKind.Tab:
                 if (f.Field == RunEditField.Exclusions) return (f, RunEditCommand.EditExclusions);
                 return (f.Field == RunEditField.End ? AtEnd(f with { EndDuration = !f.EndDuration }) : f, RunEditCommand.None);
-            case KeyKind.Char:      return (Insert(f, k.Char), RunEditCommand.None);
-            case KeyKind.Backspace: return (DeleteBack(f), RunEditCommand.None);
-            case KeyKind.Delete:    return (DeleteAt(f), RunEditCommand.None);
-            default:            return (f, RunEditCommand.None);
         }
+        // Exclusions is not text-editable (tab opens the list editor).
+        if (f.Field != RunEditField.Exclusions && TextEdit.Apply(f.Active, f.Caret, k) is { } e)
+            return (f.WithActive(e.Text) with { Caret = e.Caret }, RunEditCommand.None);
+        return (f, RunEditCommand.None);
     }
 
     /// <summary>Maps the form to <see cref="NetLog.Core.RunSpec.RunConfigFactory.WithEdits"/> arguments.</summary>
@@ -79,28 +77,4 @@ public static class RunEditReducer
 
     private static RunEditForm Focus(RunEditForm f, int index) => AtEnd(f with { FieldIndex = index });
     private static RunEditForm AtEnd(RunEditForm f) => f with { Caret = f.Active.Length };
-
-    private static RunEditForm Insert(RunEditForm f, char c)
-    {
-        if (f.Field == RunEditField.Exclusions) return f;   // not text-editable; tab opens the list editor
-        var s = f.Active;
-        var caret = Math.Clamp(f.Caret, 0, s.Length);
-        return f.WithActive(s[..caret] + c + s[caret..]) with { Caret = caret + 1 };
-    }
-
-    private static RunEditForm DeleteBack(RunEditForm f)
-    {
-        var s = f.Active;
-        var caret = Math.Clamp(f.Caret, 0, s.Length);
-        if (caret == 0) return f;
-        return f.WithActive(s[..(caret - 1)] + s[caret..]) with { Caret = caret - 1 };
-    }
-
-    private static RunEditForm DeleteAt(RunEditForm f)
-    {
-        var s = f.Active;
-        var caret = Math.Clamp(f.Caret, 0, s.Length);
-        if (caret >= s.Length) return f;
-        return f.WithActive(s[..caret] + s[(caret + 1)..]);
-    }
 }

@@ -117,6 +117,48 @@ public sealed class RunActions
         ShowResults(_runner.Run(StopCommand.BuildTeardownRequest(config, path)), "Destroy");
     }
 
+    /// <summary>[d] on the runs browser: destroy the collector on every target and purge the run's
+    /// local state there (the shared binaries too when no other NetLog task remains), then delete the
+    /// run folder on the share — all collected data included. A failed host does not block the share
+    /// deletion outright: the user is asked once more, since a host that is gone or denies access
+    /// would otherwise make the run undeletable.</summary>
+    public void Delete(string path)
+    {
+        var runJson = Path.Combine(path, "run.json");
+        if (!File.Exists(runJson))
+        {
+            Info("[red]No run.json — cannot delete.[/] Only run folders are deleted here; remove the folder by hand if it is not a run.");
+            return;
+        }
+        var config = RunConfigReader.ReadFile(runJson);
+        var name = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+
+        if (!ConfirmScreen.Run(_console, _keys,
+                $"Delete run '{name}' and destroy its collector on {config.Targets.Count} target(s)?",
+                "ALL collected data in this run folder on the share will be deleted — this cannot be undone. " +
+                "On each host the scheduled task and the run's local cache/log are removed; the shared collector binaries only when no other NetLog task remains."))
+            return;
+
+        var results = _runner.Run(StopCommand.BuildTeardownRequest(config, path, purge: true));
+        ShowResults(results, "Destroy");
+
+        var failed = results.Count(r => r.Status != "Success");
+        if (failed > 0 && !ConfirmScreen.Run(_console, _keys,
+                $"Destroy failed on {failed} host(s). Delete the run folder on the share anyway?",
+                "The collector task may still exist there — remove it by hand (Task Scheduler: NetLogCollector_<run>) or re-run destroy later."))
+            return;
+
+        try
+        {
+            Directory.Delete(path, recursive: true);
+            Info($"[{Theme.Green}]Run '{Markup.Escape(name)}' deleted.[/]");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Info($"[red]Could not delete the run folder:[/] {Markup.Escape(ex.Message)}\n[grey]A collector may still be writing to it — destroy it first, then try again.[/]");
+        }
+    }
+
     public void NewWindow(string path)
     {
         var runJson = Path.Combine(path, "run.json");
